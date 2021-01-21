@@ -9,7 +9,7 @@ add_subdirectory(lib/pybind11)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 add_subdirectory(lib/draco ${CMAKE_BINARY_DIR}/draco_build)
-include_directories("${CMAKE_BINARY_DIR}" lib/draco)
+include_directories("${CMAKE_BINARY_DIR}" lib/draco/src)
 
 pybind11_add_module(backend MODULE ${SOURCES} "${SOURCE_DIR}/bindings.cc")
 target_link_libraries(backend PRIVATE draco_static)
