@@ -12,4 +12,6 @@ PYBIND11_MODULE(backend, m)
             auto s = DracoFunctions::encode_mesh(vertices, faces, compression);
             return py::bytes(s);
     });
+
+    m.def("decode_mesh", &DracoFunctions::decode_mesh);
 }

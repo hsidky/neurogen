@@ -40,9 +40,56 @@ namespace DracoFunctions
         encoder.SetEncodingMethod(draco::MESH_EDGEBREAKER_ENCODING);
         encoder.SetAttributePredictionScheme(draco::GeometryAttribute::POSITION, draco::MESH_PREDICTION_PARALLELOGRAM);
         auto status = encoder.EncodeMeshToBuffer(*mesh, &eb);
+
+        if (!status.ok())
+            return std::string();
         
         return std::string(eb.data(), eb.size());
-  }
+    }
 
+    std::tuple<
+        std::vector<std::uint32_t>,
+        std::vector<std::uint32_t>
+    > decode_mesh(const std::string& data)
+    {
+        draco::DecoderBuffer buffer;
+        buffer.Init(data.data(), data.size());
+        
+        draco::Decoder decoder;
+        auto statusor = decoder.DecodeMeshFromBuffer(&buffer);
+        if (!statusor.ok())
+            return {};
+        
+        std::unique_ptr<draco::Mesh> in_mesh = std::move(statusor).value();
+        draco::Mesh* mesh = in_mesh.get();
+        
+        const int pos_att_id = mesh->GetNamedAttributeId(draco::GeometryAttribute::POSITION);
+        if (pos_att_id < 0) 
+            return {};
+        
+        std::uint32_t pos_val[3];
+        std::vector<std::uint32_t> vertices;
+        std::vector<std::uint32_t> faces;
+
+        vertices.reserve(3*mesh->num_points());
+        faces.reserve(3*mesh->num_faces());
+
+        const auto *const pos_att = mesh->attribute(pos_att_id);
+        for (draco::PointIndex v(0); v < mesh->num_points(); ++v) 
+        {
+            pos_att->GetMappedValue(v, pos_val);
+            for (auto x : pos_val)
+                vertices.push_back(x);
+        }
+
+        for (draco::FaceIndex i(0); i < mesh->num_faces(); ++i) 
+        {
+            const auto& f = mesh->face(i);
+            for(const auto& x : f)
+                faces.push_back(*reinterpret_cast<const std::uint32_t*>(&x));
+        }
+
+        return {vertices, faces};
+    }
 }
 
