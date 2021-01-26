@@ -74,15 +74,10 @@ setup(
     author_email='hythem.sidky@axleinfo.com',
     description='FILL ME IN',
     long_description='',
-    # tell setuptools to look for any packages under 'src'
     packages=find_packages('src'),
-    # tell setuptools that all packages will be under the 'src' directory
-    # and nowhere else
     package_dir={'':'src'},
-    # add an extension module named 'neurogen' to the package 
-    # 'neurogen'
     ext_modules=[CMakeExtension('neurogen/backend')],
-    # add custom build_ext command
     cmdclass=dict(build_ext=CMakeBuild),
+    test_suite='tests',
     zip_safe=False,
 )
