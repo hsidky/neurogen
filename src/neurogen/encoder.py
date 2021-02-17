@@ -547,6 +547,8 @@ def density_decomposition(mesh,
 
                 manifest_file.write(np.array(lod_pos).T.astype('<I').tobytes(order='C'))
                 manifest_file.write(np.array(lod_off).astype('<I').tobytes(order='C'))
-
+    
+    fragment_file.close()
+    manifest_file.close()
 
 
