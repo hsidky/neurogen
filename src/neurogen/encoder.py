@@ -313,8 +313,8 @@ def fulloctree_decomposition(mesh,
 def generate_mesh_dataframe(vertices, minvertices, lod=0):
 
     """ This function generates a dataframe that contains information 
-    on the levels of details based on density.  We bin the vertices to fit 
-    in the number nodes in the respective LOD. The function continues until
+    on the levels of details based on density.  The function bin the vertices 
+    to fit in the number nodes in the respective LOD. It will continue until
     all fragments of the highest level of detail contains less than minvertices.
     
     Parameters
