@@ -185,10 +185,8 @@ def fulloctree_decompositio_mesh(mesh,
     mesh_subdirectory : str
         Name of the mesh subdirectory within the Neuroglancer volume directory.
     """
-    # Raise Error if quantization bits does not equal 10 or 16
-    if (quantization_bits != 10) or (quantization_bits != 16):
-        raise ValueError('Quantization bits must be 10 or 16 to be compatible with Neuroglancer')
-    
+    assert (quantization_bits == 10) or (quantization_bits == 16)
+
     # Mesh values
     mesh_vertices = mesh.vertices
     max_mesh_vertex = mesh_vertices.max(axis=0)
@@ -459,6 +457,8 @@ def density_decomposition_mesh(mesh,
         Name of the mesh subdirectory within the Neuroglancer volume directory.    
     """
     
+    assert (quantization_bits == 10) or (quantization_bits == 16)
+
     # Mesh values
     mesh_vertices = mesh.vertices
     max_mesh_vertex = mesh_vertices.max(axis=0)
