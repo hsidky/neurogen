@@ -119,7 +119,47 @@ def scale_mesh(mesh, scale):
 
     return scaled_mesh
 
-def fulloctree_decomposition(mesh,
+def fulloctree_decomposition(vertices,
+                            faces,
+                            num_lods, 
+                            segment_id,
+                            directory,
+                            quantization_bits=16,
+                            compression_level=5,
+                            mesh_subdirectory='meshdir'):
+
+    """ Generates a Neuroglancer precomputed multiresolution mesh.
+    Parameters
+    ----------
+    vertices : numpy array
+        Vertices to convert to trimesh object.
+    faces : numpy array
+        Faces to convert to trimesh object.
+    num_lods : int
+        Number of levels of detail to generate.
+    segment_id : str
+        The ID of the segment to which the mesh belongs. 
+    directory : str
+        Neuroglancer precomputed volume directory.
+    quantization_bits : int
+        Number of bits for mesh vertex quantization. Can only be 10 or 16. 
+    compression_level : int
+        Level of compression for Draco format.
+    mesh_subdirectory : str
+        Name of the mesh subdirectory within the Neuroglancer volume directory.
+    """
+
+
+    mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+    fulloctree_decompositio_mesh(mesh=mesh,
+                                 num_lods=num_lods,
+                                 segment_id=segment_id,
+                                 directory=directory,
+                                 quantization_bits=quantization_bits,
+                                 compression_level=compression_level,
+                                 mesh_subdirectory=mesh_subdirectory)
+
+def fulloctree_decompositio_mesh(mesh,
                              num_lods, 
                              segment_id,
                              directory,
@@ -241,6 +281,47 @@ def fulloctree_decomposition(mesh,
     manifest_file.close()
     fragment_file.close()
 
+def density_decomposition(vertices,
+                        faces,
+                        segment_id,
+                        directory,
+                        minimum_vertices=1024,
+                        quantization_bits=16,
+                        compression_level=5,
+                        mesh_subdirectory='meshdir'):
+
+    """ Generates a Neuroglancer precomputed multiresolution mesh based
+    on the number of vertices within each fragment
+    
+    Parameters
+    ----------
+    vertices : numpy array
+        Vertices to convert to trimesh object.
+    faces : numpy array
+        Faces to convert to trimesh object.
+    segment_id : str
+        The ID of the segment to which the mesh belongs. 
+    directory : str
+        Neuroglancer precomputed volume directory.
+    minimum : int
+        The minimum number of vertices that a fragment needs to have in order a
+        stop breaking into more octrees.  Default is 1024
+    quantization_bits : int
+        Number of bits for mesh vertex quantization. Can only be 10 or 16. 
+    compression_level : int
+        Level of compression for Draco format.
+    mesh_subdirectory : str
+        Name of the mesh subdirectory within the Neuroglancer volume directory.    
+    """
+
+    mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+    density_decomposition_mesh(mesh=mesh,
+                               segment_id=segment_id,
+                               minimum_vertices=minimum_vertices,
+                               quantization_bits=quantization_bits,
+                               compression_level=compression_level,
+                               mesh_subdirectory=mesh_subdirectory)
+
 def generate_mesh_dataframe(vertices, minvertices, lod=0):
 
     """ This function generates a dataframe that contains information 
@@ -348,7 +429,7 @@ def generate_mesh_dataframe(vertices, minvertices, lod=0):
     return lod, mesh_lods
 
 
-def density_decomposition(mesh,
+def density_decomposition_mesh(mesh,
                         segment_id,
                         directory,
                         minimum_vertices=1024,
