@@ -3,7 +3,6 @@ import numpy as np
 import os
 from . import backend
 
-
 def encode_mesh(mesh, compression_level):
     """ Encodes a quantized mesh into Neuroglancer-compatible Draco format
 
@@ -21,8 +20,6 @@ def encode_mesh(mesh, compression_level):
     """
 
     return encode_vertices_faces(mesh.vertices, mesh.faces, compression_level)
-
-
 
 def encode_vertices_faces(vertices, faces, compression_level):
     """ Encodes a set of quantized vertices and faces into 
@@ -47,7 +44,6 @@ def encode_vertices_faces(vertices, faces, compression_level):
             vertices.flatten().astype(np.uint32), 
             faces.flatten().astype(np.uint32),
             compression_level)
-
 
 def decode_buffer(buffer):
     """ Decodes Draco buffer into vertices and faces
