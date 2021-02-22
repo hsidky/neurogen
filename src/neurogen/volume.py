@@ -23,7 +23,7 @@ def encode_volume(chunk):
     return buf
 
 def _mode3(image):
-    """ Find mode of pixels in optical field 2x2 and stride 2
+    """ Find mode of pixels in optical field 2x2x2 and stride 2
     This method works by finding the largest number that occurs at least twice
     in a 2x2x2 grid of pixels, then sets that value to the output pixel.
     Inputs:
@@ -108,9 +108,9 @@ def _avg3(image):
     """ Average pixels together with optical field 2x2x2 and stride 2
     
     Inputs:
-        image - numpy array with only two dimensions (m,n)
+        image - numpy array with only three dimensions (m,n,p)
     Outputs:
-        avg_img - numpy array with only two dimensions (round(m/2),round(n/2))
+        avg_img - numpy array with only three dimensions (round(m/2),round(n/2),round(p/2))
     """
 
     # Cast to appropriate type for safe averaging
