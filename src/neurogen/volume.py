@@ -279,14 +279,14 @@ def generate_chunked_representation(volume,
                     new_start_x = int(start_x/2)
                     new_start_y = int(start_y/2)
                     new_start_z = int(start_z/2)
-                    end_start_x = new_start_x + blurred_shape[0]
-                    end_start_y = new_start_y + blurred_shape[1]
-                    end_start_z = new_start_z + blurred_shape[2] 
+                    new_end_x = new_start_x + blurred_shape[0]
+                    new_end_y = new_start_y + blurred_shape[1]
+                    new_end_z = new_start_z + blurred_shape[2] 
                     
                     # Save values to new volume
-                    newvolume[new_start_x:end_start_x,
-                              new_start_y:end_start_y,
-                              new_start_z:end_start_z] = blurred_subvolume
+                    newvolume[new_start_x:new_end_x,
+                              new_start_y:new_end_y,
+                              new_start_z:new_end_z] = blurred_subvolume
 
         # update current to be averaged volume (which is half in size)
         volume = newvolume
