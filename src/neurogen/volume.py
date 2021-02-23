@@ -22,6 +22,7 @@ def encode_volume(chunk):
     buf = chunk.tobytes()
     return buf
 
+
 def _mode3(image):
     """ Find mode of pixels in optical field 2x2x2 and stride 2
     This method works by finding the largest number that occurs at least twice
@@ -180,6 +181,7 @@ def _avg3(image):
         avg_img[-1,-1,-1] = image[-1,-1,-1]
 
     return avg_img.astype(odtype)
+
 
 def generate_chunked_representation(volume,
                                     info,
