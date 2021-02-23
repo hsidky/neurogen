@@ -21,6 +21,7 @@ class Quantize():
         Array containing the offset values for each dimension. 
     """
 
+
     def __init__(self, fragment_origin, fragment_shape, input_origin, quantization_bits):
         """
         Parameters
@@ -37,7 +38,8 @@ class Quantize():
         self.upper_bound = np.iinfo(np.uint32).max >> (np.dtype(np.uint32).itemsize*8 - quantization_bits)
         self.scale = self.upper_bound / fragment_shape
         self.offset = input_origin - fragment_origin + 0.5/self.scale
-    
+
+
     def __call__(self, vertices):
         """ Quantizes an Nx3 numpy array of vertex positions.
         
@@ -53,6 +55,7 @@ class Quantize():
         """
         output = np.minimum(self.upper_bound, np.maximum(0, self.scale*(vertices + self.offset))).astype(np.uint32)
         return output
+
 
 def cmp_zorder(lhs, rhs):
     """Compare z-ordering
@@ -74,6 +77,7 @@ def cmp_zorder(lhs, rhs):
             msd = dim
     return lhs[msd] - rhs[msd]
 
+
 def clean_mesh(mesh):
     """This function cleans up the mesh for decimating the mesh.
     
@@ -91,6 +95,7 @@ def clean_mesh(mesh):
 
     return mesh
 
+
 def scale_mesh(mesh, scale):
     """ This function scales the vertices to range from 0 to scale 
     
@@ -107,7 +112,6 @@ def scale_mesh(mesh, scale):
         Trimesh mesh object whose vertices ranges from 0 to scale
     """
 
-    
     vertices = mesh.vertices
     maxval = vertices.max(axis=0)
     minval = vertices.min(axis=0)
@@ -118,6 +122,7 @@ def scale_mesh(mesh, scale):
     scaled_mesh.vertices = verts_scaled
 
     return scaled_mesh
+
 
 def fulloctree_decomposition(vertices,
                             faces,
@@ -149,7 +154,6 @@ def fulloctree_decomposition(vertices,
         Name of the mesh subdirectory within the Neuroglancer volume directory.
     """
 
-
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
     fulloctree_decomposition_mesh(mesh=mesh,
                                  num_lods=num_lods,
@@ -158,6 +162,7 @@ def fulloctree_decomposition(vertices,
                                  quantization_bits=quantization_bits,
                                  compression_level=compression_level,
                                  mesh_subdirectory=mesh_subdirectory)
+
 
 def fulloctree_decomposition_mesh(mesh,
                              num_lods, 
@@ -318,6 +323,7 @@ def density_decomposition(vertices,
                                compression_level=compression_level,
                                mesh_subdirectory=mesh_subdirectory)
 
+
 def generate_mesh_dataframe(vertices, minvertices, lod=0):
 
     """ This function generates a dataframe that contains information 
@@ -465,8 +471,8 @@ def density_decomposition_mesh(mesh,
 
     # Need to get information on meshes LOD prior to decimation.
     num_lods, dataframe = generate_mesh_dataframe(vertices=mesh.vertices, 
-                                                                    minvertices=minimum_vertices,
-                                                                    lod=0)
+                                                  minvertices=minimum_vertices,
+                                                  lod=0)
 
     # Initialize Arrays used to define the decomposition
     lods = np.arange(0, num_lods)
@@ -557,8 +563,5 @@ def density_decomposition_mesh(mesh,
 
                 manifest_file.write(np.array(lod_pos).T.astype('<I').tobytes(order='C'))
                 manifest_file.write(np.array(lod_off).astype('<I').tobytes(order='C'))
-    
-    fragment_file.close()
-    manifest_file.close()
 
 
