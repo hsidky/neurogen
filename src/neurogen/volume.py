@@ -184,7 +184,7 @@ def _avg3(image):
 def generate_chunked_representation(volume,
                                     info,
                                     directory,
-                                    mode="mode"):
+                                    blurring_method='mode'):
     """ Generates pyramids of the volume 
     https://en.wikipedia.org/wiki/Pyramid_(image_processing) 
 
@@ -200,6 +200,11 @@ def generate_chunked_representation(volume,
         Either the average or the mode is taken for blurring to generate the pyramids.
         Average - better for Images
         Mode - better for Labelled Data
+
+    Returns
+    -------
+    Pyramids of the volume with a chunk representation as specified by the info JSON 
+    file specification in the output directory.
     """
 
     # Initialize information from info file
@@ -264,7 +269,7 @@ def generate_chunked_representation(volume,
 
                     # For the next level of detail, the chunk is "blurred" and saved to new volume
                     blurred_volume = None
-                    if mode == "mode":
+                    if blurring_method == 'mode':
                         blurred_subvolume = _mode3(subvolume)
                     else:
                         blurred_subvolume = _avg3(subvolume)

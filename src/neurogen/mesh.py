@@ -151,7 +151,7 @@ def fulloctree_decomposition(vertices,
 
 
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
-    fulloctree_decompositio_mesh(mesh=mesh,
+    fulloctree_decomposition_mesh(mesh=mesh,
                                  num_lods=num_lods,
                                  segment_id=segment_id,
                                  directory=directory,
@@ -159,7 +159,7 @@ def fulloctree_decomposition(vertices,
                                  compression_level=compression_level,
                                  mesh_subdirectory=mesh_subdirectory)
 
-def fulloctree_decompositio_mesh(mesh,
+def fulloctree_decomposition_mesh(mesh,
                              num_lods, 
                              segment_id,
                              directory,
@@ -276,8 +276,6 @@ def fulloctree_decompositio_mesh(mesh,
                 manifest_file.write(np.array(lod_pos).T.astype('<I').tobytes(order='C'))
                 manifest_file.write(np.array(lod_off).astype('<I').tobytes(order='C'))
 
-    manifest_file.close()
-    fragment_file.close()
 
 def density_decomposition(vertices,
                         faces,
