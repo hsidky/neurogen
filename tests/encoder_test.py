@@ -1,14 +1,11 @@
-import sys, os 
+import os 
 import unittest
 import numpy as np
+import math
 import tempfile
 import struct
-import shutil
 from neurogen import encoder
-from os import listdir
-from os.path import isfile, join
-sys.path.insert(1, '../src/neurogen/')
-import mesh
+from neurogen import mesh
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -38,7 +35,7 @@ class TestEncodingDecoding(unittest.TestCase):
             offset_check = 0
             mesh.fulloctree_decomposition(vertices=vertices, 
                                           faces=faces, 
-                                          num_lods=4, 
+                                          num_lods=3, 
                                           segment_id=1, 
                                           directory=str(temp_dir))
             
@@ -49,11 +46,18 @@ class TestEncodingDecoding(unittest.TestCase):
                 gridorigin = list(struct.unpack_from("<3f",manifest_file.read(12), offset=0))
                 num_lods = int(struct.unpack("<I",manifest_file.read(4))[0])
                 lod_scales = list((struct.unpack("<"+ str(num_lods)+ "f",manifest_file.read(num_lods*4))))
+
+                self.assertTrue(((vertices.max(axis=0)-vertices.min(axis=0))/2**(num_lods) == chunkshapes).all())
+                self.assertTrue((vertices.min(axis=0)==gridorigin).all())
+                self.assertTrue(len(lod_scales)==num_lods)
+
                 for num in range(num_lods):
                     vertex_offsets = list((struct.unpack("<3f", manifest_file.read(12))))
                 num_fragments_per_lod = list((struct.unpack("<"+ str(num_lods)+ "I",manifest_file.read(num_lods*4))))
                 for i in range(0, num_lods):
                     frags_inthisLOD = int(num_fragments_per_lod[i])
+                    if i != (num_lods-1):
+                        self.assertTrue(frags_inthisLOD%8==0)
                     fragment_positions_x = list(struct.unpack_from("<" + str(frags_inthisLOD) + "I", manifest_file.read(frags_inthisLOD*4)))
                     fragment_positions_y = list(struct.unpack_from("<" + str(frags_inthisLOD) + "I", manifest_file.read(frags_inthisLOD*4)))
                     fragment_positions_z = list(struct.unpack_from("<" + str(frags_inthisLOD) + "I", manifest_file.read(frags_inthisLOD*4)))
@@ -61,11 +65,7 @@ class TestEncodingDecoding(unittest.TestCase):
                     offset_check = offset_check + sum(fragment_offsets)
 
                 self.assertTrue(eof==manifest_file.tell())
-                
-            self.assertTrue(((vertices.max(axis=0)-vertices.min(axis=0))/2**(num_lods) == chunkshapes).all())
-            self.assertTrue((vertices.min(axis=0)==gridorigin).all())
-            self.assertTrue(len(lod_scales)==num_lods)
-            
+
             fragment = os.path.join(temp_dir, "meshdir", "1")
             fragment_file_size = os.path.getsize(fragment)
             self.assertTrue(offset_check==fragment_file_size)
