@@ -345,16 +345,16 @@ def generate_mesh_dataframe(vertices, minvertices, lod=0):
     -------
     lod : int
         The number of levels created for the mesh
-    counts : dictionary
+    dict_count : dictionary
         The dataframe containing information on the level of 
         details and specifies which fragments are saved
     """
     
     # Intialize necessary information
-    counts = {0:{(0,0,0):True}}
+    dict_count = {0:{(0,0,0):True}}
     num_vertices = len(vertices)
     if minvertices > num_vertices:
-        return 1, counts
+        return 1, dict_count
     reachlevel = False 
     
     lod = 1
@@ -390,20 +390,20 @@ def generate_mesh_dataframe(vertices, minvertices, lod=0):
                     
                     # Append to dictionary 
                     if countcompare > minvertices:
-                        counts[lod][(x,y,z)] = True
+                        dict_count[lod][(x,y,z)] = True
                     else:
-                        counts[lod][(x,y,z)] = False
+                        dict_count[lod][(x,y,z)] = False
                     
         
         stopcounts = np.array(stopcounts)
         if (stopcounts <= minvertices).all():
             # Last LOD is all False
-            del counts[lod]
+            del dict_count[lod]
             reachlevel = True
         else:
             lod = lod + 1
 
-    return lod, counts
+    return lod, dict_count
 
 
 def density_decomposition_mesh(mesh,
@@ -535,5 +535,3 @@ def density_decomposition_mesh(mesh,
 
                 manifest_file.write(np.array(lod_pos).T.astype('<I').tobytes(order='C'))
                 manifest_file.write(np.array(lod_off).astype('<I').tobytes(order='C'))
-
-
