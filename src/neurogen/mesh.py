@@ -512,7 +512,7 @@ def density_decomposition_mesh(mesh,
                             mesh_z = trimesh.intersections.slice_mesh_plane(mesh_y, plane_normal=nxy, plane_origin=nxy*z)
                             mesh_z = trimesh.intersections.slice_mesh_plane(mesh_z, plane_normal=-nxy, plane_origin=nxy*(z+1))
 
-                            dracolen = 0 # Append zero if fragment contains no vertices
+                            dracolen = 0 # Append zero if fragment does not meet conditions
                             if (lod_dictionary[(x,y,z)] == True):
                                 
                                 if (len(mesh_z.vertices) > 0):
