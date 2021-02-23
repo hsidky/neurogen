@@ -345,90 +345,65 @@ def generate_mesh_dataframe(vertices, minvertices, lod=0):
     -------
     lod : int
         The number of levels created for the mesh
-    mesh_lods : pandas dataframe
+    counts : dictionary
         The dataframe containing information on the level of 
-        details
+        details and specifies which fragments are saved
     """
+    
     # Intialize necessary information
-    reachlevel = False 
+    counts = {0:{(0,0,0):True}}
     num_vertices = len(vertices)
-
+    if minvertices > num_vertices:
+        return 1, counts
+    reachlevel = False 
+    
+    lod = 1
     # Initalize necessary information to prevent recalculating
     maxvertex = vertices.max(axis=0)
     minvertex = vertices.min(axis=0)
-
-    # Initialize the dataframes
-    # mesh_df contains the orginial vertices of the mesh
-    mesh_df = pd.DataFrame(data=vertices, columns=["x", "y", "z"])
-    # mesh_lods contains information of all the level of details
-    mesh_lods = pd.DataFrame(data=[[0, 0, 0, num_vertices, 0, None]], columns = "x y z Count LOD Decompose".split())
-    # mesh_lod will only contains information on the current level of detail
-        # will continuously get updated
-    mesh_lod = pd.DataFrame(data=[], columns=["x", "y", "z", "Decompose"])
+    vertices_transposed = vertices.T
+    xvertices = vertices_transposed[0]
+    yvertices = vertices_transposed[1]
+    zvertices = vertices_transposed[2]
 
     while reachlevel == False:
         # define the number of nodes, the number of times the mesh gets sliced 
             # in the level of detail
+        counts[lod] = {}
         numsplits = int((2**lod)+1)
         xsplits = np.linspace(start=minvertex[0], stop=maxvertex[0], num=numsplits)
         ysplits = np.linspace(start=minvertex[1], stop=maxvertex[1], num=numsplits)
         zsplits = np.linspace(start=minvertex[2], stop=maxvertex[2], num=numsplits)
 
-        # meshnodes_df will be the binned data of mesh_df
-        meshnodes_df = mesh_df.copy()
+
+        stopcounts = [] #to help keep track of when to stop
         for x in range(numsplits-1):
             for y in range(numsplits-1):
                 for z in range(numsplits-1):
+                    xtrue = np.where(((xvertices>=xsplits[x]) & (xvertices<xsplits[x+1])), True, False)
+                    ytrue = np.where(((yvertices>=ysplits[y]) & (yvertices<ysplits[y+1])), True, False)
+                    ztrue = np.where(((zvertices>=zsplits[z]) & (zvertices<zsplits[z+1])), True, False)
+                    # Count all the indices where it equals True
+                    countcompare = np.sum((xtrue == ytrue) & (xtrue==ztrue) & (xtrue==True))  
+
+                    stopcounts.append(countcompare)
                     
-                    # if the (x,y,z) coordinates are within that range then they get binned
-                        # into that fragment
-                    condx = (mesh_df["x"] >= xsplits[x]) & (mesh_df["x"] < xsplits[x+1])
-                    condy = (mesh_df["y"] >= ysplits[y]) & (mesh_df["y"] < ysplits[y+1])
-                    condz = (mesh_df["z"] >= zsplits[z]) & (mesh_df["z"] < zsplits[z+1])
-
-                    # This section looks at the previous level of detail.
-                        # If the previous level specifies that there is no need
-                        # to decompose that fragment, because it is less than 
-                        # the minimum_vertices, then it replaces those vertices 
-                        # in the next level of detail with empty values.
-                    if not mesh_lod[(mesh_lod["x"] == x//2) & 
-                                    (mesh_lod["y"] == y//2) &
-                                    (mesh_lod["z"] == z//2) &
-                                    (mesh_lod["Decompose"] == False)].empty:
-                        meshnodes_df.loc[condx,"x"] = None
-                        meshnodes_df.loc[condy,"y"] = None
-                        meshnodes_df.loc[condz,"z"] = None
+                    # Append to dictionary 
+                    if countcompare > minvertices:
+                        counts[lod][(x,y,z)] = True
                     else:
-                        meshnodes_df.loc[condx,"x"] = x
-                        meshnodes_df.loc[condy,"y"] = y
-                        meshnodes_df.loc[condz,"z"] = z
-
-        # The extents of the mesh needs to be within the last fragment
-        meshnodes_df.loc[mesh_df["x"]==xsplits[-1],"x"] = x
-        meshnodes_df.loc[mesh_df["y"]==ysplits[-1],"y"] = y
-        meshnodes_df.loc[mesh_df["z"]==zsplits[-1],"z"] = z
-
-        # Count the binned data
-        mesh_lod = meshnodes_df.groupby(["x", "y", "z"]).size().reset_index(name="Count")
-        mesh_lod["LOD"] = lod
-        mesh_lod["Decompose"] = np.where(mesh_lod["Count"] > minvertices, True, False)
+                        counts[lod][(x,y,z)] = False
+                    
         
-        # Append this level of details information to the output dataframe
-        if lod == 0:
-            mesh_lods = mesh_lod
-        else:
-            mesh_lods = mesh_lods.append(mesh_lod)
-        
-        # If all the vertices are less than minimum_vertices, then stop 
-            # the while loop
-        lod = lod+1
-        stop_condition = (mesh_lod["Decompose"] == False)
-
-        if stop_condition.all():
+        stopcounts = np.array(stopcounts)
+        if (stopcounts <= minvertices).all():
+            # Last LOD is all False
+            del counts[lod]
             reachlevel = True
-    mesh_lods = mesh_lods.reset_index(drop=True)
+        else:
+            lod = lod + 1
 
-    return lod, mesh_lods
+    return lod, counts
 
 
 def density_decomposition_mesh(mesh,
@@ -470,9 +445,8 @@ def density_decomposition_mesh(mesh,
     clean_mesh(mesh)
 
     # Need to get information on meshes LOD prior to decimation.
-    num_lods, dataframe = generate_mesh_dataframe(vertices=mesh.vertices, 
-                                                  minvertices=minimum_vertices,
-                                                  lod=0)
+    num_lods, dictionary = generate_mesh_dataframe(vertices=mesh.vertices, 
+                                                   minvertices=minimum_vertices)
 
     # Initialize Arrays used to define the decomposition
     lods = np.arange(0, num_lods)
@@ -493,7 +467,7 @@ def density_decomposition_mesh(mesh,
     chunk_shape = (max_mesh_vertex - min_mesh_vertex)/(2**num_lods)
     grid_origin = min_mesh_vertex
     vertex_offsets = np.array([[0., 0., 0.] for _ in range(num_lods)])
-    num_fragments_per_lod = np.flip(np.array(dataframe["LOD"].value_counts(sort=False).to_list()))
+    num_fragments_per_lod = np.flip(np.power(8, lods))
     manifest_filename = os.path.join(mesh_dir, f'{segment_id}.index')
     with open(manifest_filename, 'ab') as manifest_file:
         manifest_file.write(chunk_shape.astype('<f').tobytes())
@@ -508,7 +482,6 @@ def density_decomposition_mesh(mesh,
             
             for i in reversed(lods):
 
-                lodframe = dataframe[(dataframe["LOD"] == i)]
                 decimated_mesh = mesh.simplify_quadratic_decimation(num_faces_left[i])
                 clean_mesh(decimated_mesh)
 
@@ -525,6 +498,9 @@ def density_decomposition_mesh(mesh,
                 lod_pos = []
                 lod_off = []
 
+                # Only need information for this LOD
+                lod_dictionary = dictionary[i]
+
                 # The mesh gets sliced at every node
                 for x in range(0, nodes_per_dim):
                     mesh_x = trimesh.intersections.slice_mesh_plane(scaled_mesh, plane_normal=nyz, plane_origin=nyz*x)
@@ -535,31 +511,27 @@ def density_decomposition_mesh(mesh,
                         for z in range(0, nodes_per_dim):
                             mesh_z = trimesh.intersections.slice_mesh_plane(mesh_y, plane_normal=nxy, plane_origin=nxy*z)
                             mesh_z = trimesh.intersections.slice_mesh_plane(mesh_z, plane_normal=-nxy, plane_origin=nxy*(z+1))
-                            
-                            condx = (lodframe["x"] == x)
-                            condy = (lodframe["y"] == y)
-                            condz = (lodframe["z"] == z)
 
-                            # Information must be present in dataframe
-                            if (condx & condy & condz).any():
-
-                                # Initialize Quantizer.
-                                quantizer = Quantize(
-                                    fragment_origin=np.array([x, y, z]), 
-                                    fragment_shape=np.array([1, 1, 1]), 
-                                    input_origin=np.array([0,0,0]), 
-                                    quantization_bits=quantization_bits
-                                )
-                                dracolen = 0 # Append zero if fragment contains no vertices
+                            dracolen = 0 # Append zero if fragment contains no vertices
+                            if (lod_dictionary[(x,y,z)] == True):
+                                
                                 if (len(mesh_z.vertices) > 0):
-                                        mesh_z.vertices = quantizer(mesh_z.vertices)
-                                        draco = encoder.encode_mesh(mesh_z,compression_level=compression_level)
-                                        dracolen = len(draco)
+                                    # Initialize Quantizer.
+                                    quantizer = Quantize(
+                                        fragment_origin=np.array([x, y, z]), 
+                                        fragment_shape=np.array([1, 1, 1]), 
+                                        input_origin=np.array([0,0,0]), 
+                                        quantization_bits=quantization_bits
+                                    )
 
-                                        fragment_file.write(draco)
- 
-                                lod_off.append(dracolen)
-                                lod_pos.append([x,y,z])
+                                    mesh_z.vertices = quantizer(mesh_z.vertices)
+                                    draco = encoder.encode_mesh(mesh_z,compression_level=compression_level)
+                                    dracolen = len(draco)
+
+                                    fragment_file.write(draco)
+
+                            lod_off.append(dracolen)
+                            lod_pos.append([x,y,z])
 
                 manifest_file.write(np.array(lod_pos).T.astype('<I').tobytes(order='C'))
                 manifest_file.write(np.array(lod_off).astype('<I').tobytes(order='C'))
