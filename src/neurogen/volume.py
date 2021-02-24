@@ -2,10 +2,7 @@ import numpy as np
 import skimage.measure
 import os
 from pathlib import Path
-import math
-import traceback
-import logging
-import javabridge as jutil
+from javabridge import jutil
 from concurrent.futures import ThreadPoolExecutor
 
 def encode_volume(chunk):
@@ -21,7 +18,6 @@ def encode_volume(chunk):
     assert chunk.ndim == 4
     buf = chunk.tobytes()
     return buf
-
 
 def _mode3(image):
     """ Find mode of pixels in optical field 2x2x2 and stride 2
@@ -183,10 +179,11 @@ def _avg3(image):
     return avg_img.astype(odtype)
 
 
-def generate_chunked_representation(volume,
+def generate_iterative_chunked_representation(volume,
                                     info,
                                     directory,
-                                    blurring_method='mode'):
+                                    blurring_method='mode',
+                                    blurred_image=None):
     """ Generates pyramids of the volume 
     https://en.wikipedia.org/wiki/Pyramid_(image_processing) 
 
@@ -209,23 +206,27 @@ def generate_chunked_representation(volume,
     file specification in the output directory.
     """
 
+    # size_0 = (info['scales'][0]['size'])
+    # volumeshape_0 = list(volume.shape[:3])
+    # if (volumeshape_0 != size_0):
+    #     raise ValueError("Make sure the (X,Y,Z) axis for volume shape {} matches the info file specification size {}".format(volumeshape_0, size_0))
+
+    if blurred_image == None:
+        blurred_image = np.zeros(volume.shape, dtype=volume.dtype)
+
     # Initialize information from info file
     num_scales = len(info['scales'])
 
     # Loop through all scales
     # Generate volumes of highest resolution first
     for i in range(num_scales):
-        
+
         # Intialize information from this scale
         key = info['scales'][i]['key']
         size = info['scales'][i]['size']
         chunk_size = info['scales'][i]['chunk_sizes'][0]
 
         # Number of chunks in every dimension
-        num_chunks_x = math.ceil(size[0]/chunk_size[0]) 
-        num_chunks_y = math.ceil(size[1]/chunk_size[1])
-        num_chunks_z = math.ceil(size[2]/chunk_size[2])
-        num_chunks = num_chunks_x * num_chunks_y * num_chunks_z
         volumeshape = volume.shape
 
         # Chunk Values
@@ -235,22 +236,21 @@ def generate_chunked_representation(volume,
 
         # Initialize directory for scale
         volume_dir = os.path.join(directory, str(key))
-        os.makedirs(volume_dir, exist_ok=True)
+        if not os.path.exists(volume_dir):
+            os.makedirs(volume_dir, exist_ok=True)
 
-        # Initalize volume for next scale
-        newvolume_shape = np.ceil([d/2 for d in volume.shape]).astype(int)
-        newvolume = np.zeros(newvolume_shape,dtype=volume.dtype)
-
-        for x in range(num_chunks_x):
-            for y in range(num_chunks_y):
-                for z in range(num_chunks_z):
+        blurred_image_shape = [int(np.ceil(d/2)) for d in volume.shape]
+        
+        for y in range(len(ysplits)):
+            for x in range(len(xsplits)):
+                for z in range(len(zsplits)):
                     start_x, start_y, start_z = xsplits[x], ysplits[y], zsplits[z]
                     # range(num_chunks) does not include ending bounds, must specify
                     try:
                         end_x = xsplits[x+1]
                     except:
                         end_x = volumeshape[0]
-                    try:
+                    try:       
                         end_y = ysplits[y+1]
                     except:
                         end_y = volumeshape[1]
@@ -258,14 +258,17 @@ def generate_chunked_representation(volume,
                         end_z = zsplits[z+1]
                     except:
                         end_z = volumeshape[2]
-                    
+
                     # chunk of volume is saved to directory
                     subvolume = volume[start_x:end_x, 
                                        start_y:end_y,
                                        start_z:end_z]
-
+                    subvolume = subvolume.reshape(subvolume.shape[:3])
+                    
                     encoded_subvolume = encode_volume(np.expand_dims(subvolume, 3))
-                    file_name = "{}-{}_{}-{}_{}-{}".format(start_x, end_x, start_y, end_y, start_z, end_z)
+                    file_name = "{}-{}_{}-{}_{}-{}".format(start_x, end_x,
+                                                           start_y, end_y,
+                                                           start_z, end_z)
                     with open(os.path.join(volume_dir, f'{file_name}'), 'wb') as chunk_storage:
                         chunk_storage.write(encoded_subvolume)
 
@@ -286,10 +289,136 @@ def generate_chunked_representation(volume,
                     new_end_z = new_start_z + blurred_shape[2] 
                     
                     # Save values to new volume
-                    newvolume[new_start_x:new_end_x,
-                              new_start_y:new_end_y,
-                              new_start_z:new_end_z] = blurred_subvolume
+                    blurred_image[new_start_x:new_end_x,
+                                  new_start_y:new_end_y,
+                                  new_start_z:new_end_z,0,0] = blurred_subvolume
+                    
 
         # update current to be averaged volume (which is half in size)
-        volume = newvolume
+        volume = blurred_image[:blurred_image_shape[0],
+                               :blurred_image_shape[1],
+                               :blurred_image_shape[2],0,0]
+
     return volume
+
+def generate_recursive_chunked_representation(volume, info, dtype, directory, S=0, X=None,Y=None,Z=None):
+    """ Recursive function for pyramid building
+    This is a recursive function that builds an image pyramid by indicating
+    an original region of an image at a given scale. This function then
+    builds a pyramid up from the highest resolution components of the pyramid
+    (the original images) to the given position resolution.
+    As an example, imagine the following possible pyramid:
+    Scale S=0                     1234
+                                 /    \
+    Scale S=1                  12      34
+                              /  \    /  \
+    Scale S=2                1    2  3    4
+    At scale 2 (the highest resolution) there are 4 original images. At scale 1,
+    images are averaged and concatenated into one image (i.e. image 12). Calling
+    this function using S=0 will attempt to generate 1234 by calling this
+    function again to get image 12, which will then call this function again to
+    get image 1 and then image 2. Note that this function actually builds images
+    in quadrants (top left and right, bottom left and right) rather than two
+    sections as displayed above.
+    
+    Due to the nature of how this function works, it is possible to build a
+    pyramid in parallel, since building the subpyramid under image 12 can be run
+    independently of the building of subpyramid under 34.
+    
+    Inputs:
+        S - Top level scale from which the pyramid will be built
+        bfio_reader - BioReader object used to read the tiled tiff
+        slide_writer - SlideWriter object used to write pyramid tiles
+        encoder - ChunkEncoder object used to encode numpy data to byte stream
+        X - Range of X values [min,max] to get at the indicated scale
+        Y - Range of Y values [min,max] to get at the indicated scale
+    Outputs:
+        image - The image corresponding to the X,Y values at scale S
+    """
+
+    all_scales = info['scales']
+    num_scales = len(all_scales)
+
+    scale_info = all_scales[num_scales-S-1]
+    size = scale_info['size']
+    chunk_size = scale_info['chunk_sizes']
+
+
+    if scale_info==None:
+        ValueError("No scale information for resolution {}.".format(S))
+
+    # Initialize X, Y, Z
+    if X == None: X = [0,size[0]]
+    if Y == None: Y = [0,size[1]]
+    if Z == None: Z = [0,size[2]]
+    
+    # Modify upper bound to stay within resolution dimensions
+    if X[1] > size[0]: X[1] = size[0]
+    if Y[1] > size[1]: Y[1] = size[1]
+    if Z[1] > size[2]: Z[1] = size[2]
+    
+    # If requesting from the lowest scale, then just read the image
+    if str(S)==all_scales[0]['key']:
+        # image = bfio_reader[Y[0]:Y[1],X[0]:X[1],Z[0]:Z[1],0,0]
+        image = volume[Y[0]:Y[1],X[0]:X[1],Z[0]:Z[1]]
+
+        # Encode the chunk
+        image_encoded = encode_volume(image)
+
+        # Write the chunk
+        volume_dir = os.path.join(directory, str(S))
+        if not os.path.exists(volume_dir):
+            os.makedirs(volume_dir, exist_ok=True)
+        file_name = "{}-{}_{}-{}_{}-{}".format(str(X[0]), str(X[1]),
+                                               str(Y[0]), str(Y[1]),
+                                               str(Z[0]), str(Z[1]))
+        with open(os.path.join(volume_dir, f'{file_name}'), 'wb') as chunk_storage:
+                        chunk_storage.write(image_encoded)
+
+        return image
+
+    else:
+
+        #initialize the output image
+        image = np.zeros((Y[1]-Y[0],X[1]-X[0],Z[1]-Z[0],1,1),dtype=dtype)
+        
+        # Set the subgrid dimensions
+        subgrid_x = list(np.arange(2*X[0],2*X[1],chunk_size[0])) 
+        subgrid_x.append(2*X[1])
+        subgrid_y = list(np.arange(2*Y[0],2*Y[1],chunk_size[1]))
+        subgrid_y.append(2*Y[1])
+        subgrid_z = list(np.arange(2*Z[0],2*Z[1],chunk_size[2]))
+        subgrid_z.append(2*Z[1])
+        subgrid_dims = [subgrid_x, subgrid_y, subgrid_z]
+
+        for x in range(len(subgrid_x)-1):
+            x_ind = np.ceil([(subgrid_x[x]-subgrid_x[0])/2,
+                             (subgrid_x[x+1]-subgrid_x[0])/2]).astype('int')
+            for y in range(len(subgrid_y)-1):
+                y_ind = np.ceil([(subgrid_y[y]-subgrid_y[0])/2,
+                                 (subgrid_y[y+1]-subgrid_y[0])/2]).astype('int')
+                for z in range(len(subgrid_z)-1):
+                    z_ind = np.ceil([(subgrid_z[z]-subgrid_z[0])/2,
+                                     (subgrid_z[z+1] - subgrid_z[0])/2]).astype('int')
+                    sub_image = generate_recursive_chunked_representation(volume=image[y_ind[0]:y_ind[1],
+                                                                                       x_ind[0]:x_ind[1],
+                                                                                       z_ind[0]:z_ind[1],0,0],
+                                                                          info=info,
+                                                                          dtype=dtype,
+                                                                          directory=directory,
+                                                                          S=S+1,
+                                                                          X=subgrid_x[x:x+2],
+                                                                          Y=subgrid_y[y:y+2],
+                                                                          Z=subgrid_z[z:z+2])
+
+        # Encode the chunk
+        image_encoded = encode_volume(image)
+        volume_dir = os.path.join(directory, str(S))
+        if not os.path.exists(volume_dir):
+            os.makedirs(volume_dir, exist_ok=True)
+        file_name = "{}-{}_{}-{}_{}-{}".format(str(X[0]), str(X[1]),
+                                               str(Y[0]), str(Y[1]),
+                                               str(Z[0]), str(Z[1]))
+        with open(os.path.join(volume_dir, f'{file_name}'), 'wb') as chunk_storage:
+                        chunk_storage.write(image_encoded)
+        return image
