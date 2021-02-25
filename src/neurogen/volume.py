@@ -112,6 +112,7 @@ def _avg3(image):
     """
 
     # Cast to appropriate type for safe averaging
+    
     if image.dtype == np.uint8:
         dtype = np.uint16
     elif image.dtype == np.uint16:
@@ -362,9 +363,12 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
         ValueError("No scale information for resolution {}.".format(S))
 
     # Initialize X, Y, Z
-    if X == None: X = [0,size[0]]
-    if Y == None: Y = [0,size[1]]
-    if Z == None: Z = [0,size[2]]
+    if X == None: 
+        X = [0,size[0]]
+    if Y == None: 
+        Y = [0,size[1]]
+    if Z == None: 
+        Z = [0,size[2]]
     
     # Modify upper bound to stay within resolution dimensions
     if X[1] > size[0]: X[1] = size[0]
