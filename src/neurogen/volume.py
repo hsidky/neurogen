@@ -371,9 +371,12 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
         Z = [0,size[2]]
     
     # Modify upper bound to stay within resolution dimensions
-    if X[1] > size[0]: X[1] = size[0]
-    if Y[1] > size[1]: Y[1] = size[1]
-    if Z[1] > size[2]: Z[1] = size[2]
+    if X[1] > size[0]: 
+        X[1] = size[0]
+    if Y[1] > size[1]: 
+        Y[1] = size[1]
+    if Z[1] > size[2]: 
+        Z[1] = size[2]
     
     # If requesting from the lowest scale, then just read the image
     if str(S)==all_scales[0]['key']:
