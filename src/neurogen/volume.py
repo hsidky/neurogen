@@ -1,5 +1,4 @@
 import numpy as np
-import skimage.measure
 import os
 from pathlib import Path
 from javabridge import jutil
