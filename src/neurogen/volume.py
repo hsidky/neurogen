@@ -96,9 +96,10 @@ def _mode3(image):
         shortmode_img = forloop(shortmode_img, indexfalse, valueslist)
         mode_edges[edges] = shortmode_img
         mode_edge_shape = mode_edges[edges].shape
-        mode_img[:mode_edge_shape[0],
-                 :mode_edge_shape[1],
-                 :mode_edge_shape[2]] = mode_edges[edges]
+        if (mode_imgshape != mode_edge_shape).all():
+            mode_img[:mode_edge_shape[0],
+                    :mode_edge_shape[1],
+                    :mode_edge_shape[2]] = mode_edges[edges]
         return mode_img
 
 
