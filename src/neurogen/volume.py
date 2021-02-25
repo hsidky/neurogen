@@ -426,8 +426,6 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
                                                                           Y=subgrid_y[y:y+2],
                                                                           Z=subgrid_z[z:z+2])
                     sub_image = sub_image.reshape(sub_image.shape[:3])
-                    print("IMAGE SHAPE : {}".format(image[x_ind[0]:x_ind[1],y_ind[0]:y_ind[1],z_ind[0]:z_ind[1],0,0].shape))
-                    print("SUB IMAGE SHAPE : {}".format(sub_image.shape))
                     if blurring_method == 'mode':
                         image[x_ind[0]:x_ind[1],y_ind[0]:y_ind[1],z_ind[0]:z_ind[1],0,0] = _mode3(sub_image)
                     else:
