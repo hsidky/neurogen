@@ -158,7 +158,6 @@ def _avg3(image):
     )/8
 
     # Account for odd shaped dimensions to prevent data loss
-    # TODO: This accounts for edge planes, but not edge lines and corners
     if z_max != image.shape[2]:
         avg_img[:int(y_max/2),:int(x_max/2),-1] = (image[0:y_max-1:2,0:x_max-1:2,-1] + 
                                                    image[1:y_max:2  ,0:x_max-1:2,-1] + 
@@ -202,7 +201,7 @@ def generate_iterative_chunked_representation(volume,
     Parameters
     ----------
     volume : numpy array
-        A 3D numpy array representing a volume
+        A 5D numpy array representing a volume
     info : dict
         The "info JSON file specification" that is required by Neuroglancer as a dict.
     directory : str
@@ -218,10 +217,10 @@ def generate_iterative_chunked_representation(volume,
     file specification in the output directory.
     """
 
-    size_0 = (info['scales'][0]['size'])
-    volumeshape_0 = list(volume.shape[:3])
-    if (volumeshape_0 != size_0):
-        raise ValueError("Make sure the (X,Y,Z) axis for volume shape {} matches the info file specification size {}".format(volumeshape_0, size_0))
+    # size_0 = (info['scales'][0]['size'])
+    # volumeshape_0 = list(volume.shape[:3])
+    # if (volumeshape_0 != size_0):
+    #     raise ValueError("Make sure the (X,Y,Z) axis for volume shape {} matches the info file specification size {}".format(volumeshape_0, size_0))
 
     if blurred_image == None:
         blurred_image = np.zeros(volume.shape, dtype=volume.dtype)
@@ -242,10 +241,10 @@ def generate_iterative_chunked_representation(volume,
         volumeshape = volume.shape
 
         # Chunk Values
-        xsplits = list(np.arange(0, volumeshape[0], chunk_size[0]))
-        xsplits.append(volumeshape[0])
-        ysplits = list(np.arange(0, volumeshape[1], chunk_size[1]))
-        ysplits.append(volumeshape[1])
+        ysplits = list(np.arange(0, volumeshape[0], chunk_size[0]))
+        ysplits.append(volumeshape[0])
+        xsplits = list(np.arange(0, volumeshape[1], chunk_size[1]))
+        xsplits.append(volumeshape[1])
         zsplits = list(np.arange(0, volumeshape[2], chunk_size[2]))
         zsplits.append(volumeshape[2])
 
@@ -262,14 +261,14 @@ def generate_iterative_chunked_representation(volume,
                     start_z, end_z = (zsplits[z], zsplits[z+1])
 
                     # chunk of volume is saved to directory
-                    subvolume = volume[start_x:end_x, 
-                                       start_y:end_y,
+                    subvolume = volume[start_y:end_y,
+                                       start_x:end_x,
                                        start_z:end_z]
                     subvolume = subvolume.reshape(subvolume.shape[:3])
                     
                     encoded_subvolume = encode_volume(np.expand_dims(subvolume, 3))
                     write_image(image=encoded_subvolume, volume_directory=volume_dir,
-                                scale=i, x=[start_x, end_x], y=[start_y, end_y], z= [start_z, end_z])
+                                scale=i, x=[start_y, end_y], y=[start_x, end_x], z= [start_z, end_z])
 
                     # For the next level of detail, the chunk is "blurred" and saved to new volume
                     blurred_volume = None
@@ -283,19 +282,19 @@ def generate_iterative_chunked_representation(volume,
                     new_start_x = int(start_x/2)
                     new_start_y = int(start_y/2)
                     new_start_z = int(start_z/2)
-                    new_end_x = new_start_x + blurred_shape[0]
-                    new_end_y = new_start_y + blurred_shape[1]
+                    new_end_x = new_start_x + blurred_shape[1]
+                    new_end_y = new_start_y + blurred_shape[0]
                     new_end_z = new_start_z + blurred_shape[2] 
                     
                     # Save values to new volume
-                    blurred_image[new_start_x:new_end_x,
-                                  new_start_y:new_end_y,
+                    blurred_image[new_start_y:new_end_y,
+                                  new_start_x:new_end_x,
                                   new_start_z:new_end_z,0,0] = blurred_subvolume
                     
 
         # update current to be averaged volume (which is half in size)
-        volume = blurred_image[:blurred_image_shape[0],
-                               :blurred_image_shape[1],
+        volume = blurred_image[:blurred_image_shape[1],
+                               :blurred_image_shape[0],
                                :blurred_image_shape[2],0,0]
 
     return volume
@@ -329,7 +328,7 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
     Parameters
     ----------
     volume : numpy array
-        A 3D numpy array representing a volume
+        A 5D (YXZCT) numpy array representing a volume
     info : dict
         The "info JSON file specification" that is required by Neuroglancer as a dict.
     dtype : datatype
@@ -381,7 +380,7 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
     if str(S)==all_scales[0]['key']:
 
         # Taking a chunk of the input
-        image = volume[X[0]:X[1],Y[0]:Y[1],Z[0]:Z[1]]
+        image = volume[Y[0]:Y[1],X[0]:X[1],Z[0]:Z[1]]
 
         # Encode the chunk
         image_encoded = encode_volume(image)
@@ -389,14 +388,14 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
         # Write the chunk
         volume_dir = os.path.join(directory, str(S))
         write_image(image=image_encoded, volume_directory=volume_dir, 
-                    scale=S, x=X, y=Y, z=Z)
+                    scale=S, x=Y, y=X, z=Z)
         
         return image
 
     else:
 
         #initialize the output image
-        image = np.zeros((X[1]-X[0],Y[1]-Y[0],Z[1]-Z[0],1,1),dtype=dtype)
+        image = np.zeros((Y[1]-Y[0],X[1]-X[0],Z[1]-Z[0],1,1),dtype=dtype)
         
         # Set the subgrid dimensions
         subgrid_x = list(np.arange(2*X[0],2*X[1],chunk_size[0])) 
@@ -427,14 +426,14 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
                                                                           Z=subgrid_z[z:z+2])
                     sub_image = sub_image.reshape(sub_image.shape[:3])
                     if blurring_method == 'mode':
-                        image[x_ind[0]:x_ind[1],y_ind[0]:y_ind[1],z_ind[0]:z_ind[1],0,0] = _mode3(sub_image)
+                        image[y_ind[0]:y_ind[1],x_ind[0]:x_ind[1],z_ind[0]:z_ind[1],0,0] = _mode3(sub_image)
                     else:
-                        image[x_ind[0]:x_ind[1],y_ind[0]:y_ind[1],z_ind[0]:z_ind[1],0,0] = _avg3(sub_image)
+                        image[y_ind[0]:y_ind[1],x_ind[0]:x_ind[1],z_ind[0]:z_ind[1],0,0] = _avg3(sub_image)
 
         # Encode the chunk
         image_encoded = encode_volume(image)
         volume_dir = os.path.join(directory, str(S))
         write_image(image=image_encoded, volume_directory=volume_dir,
-                    scale=S, x=X, y=Y, z=Z)
+                    scale=S, x=Y, y=X, z=Z)
 
         return image
