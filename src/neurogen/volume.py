@@ -217,11 +217,6 @@ def generate_iterative_chunked_representation(volume,
     file specification in the output directory.
     """
 
-    # size_0 = (info['scales'][0]['size'])
-    # volumeshape_0 = list(volume.shape[:3])
-    # if (volumeshape_0 != size_0):
-    #     raise ValueError("Make sure the (X,Y,Z) axis for volume shape {} matches the info file specification size {}".format(volumeshape_0, size_0))
-
     if blurred_image == None:
         blurred_image = np.zeros(volume.shape, dtype=volume.dtype)
 
