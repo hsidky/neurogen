@@ -201,7 +201,7 @@ def generate_iterative_chunked_representation(volume,
     Parameters
     ----------
     volume : numpy array
-        A 5D numpy array representing a volume
+        A 5D (YXZCT) numpy array representing a volume
     info : dict
         The "info JSON file specification" that is required by Neuroglancer as a dict.
     directory : str
