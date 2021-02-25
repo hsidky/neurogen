@@ -1,5 +1,14 @@
-import numpy as np
 import os
+import numpy as np
+from concurrent.futures import ThreadPoolExecutor
+import traceback 
+
+try:
+    import javabridge as jutil
+    import bfio
+    from bfio import BioReader, BioWriter, JARS, LOG4J
+except ImportError:
+    pass
 
 def encode_volume(chunk):
     """ Encode a chunk from a Numpy array into bytes.
@@ -408,30 +417,44 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
         subgrid_z = list(np.arange(2*Z[0],2*Z[1],chunk_size[2]))
         subgrid_z.append(2*Z[1])
 
-        # Where each chunk gets mapped to.
-        for x in range(0,len(subgrid_x)-1):
-            x_ind = np.ceil([(subgrid_x[x]-subgrid_x[0])/2,
-                            (subgrid_x[x+1]-subgrid_x[0])/2]).astype('int')
-            for y in range(0,len(subgrid_y)-1):
-                y_ind = np.ceil([(subgrid_y[y]-subgrid_y[0])/2,
-                                (subgrid_y[y+1]-subgrid_y[0])/2]).astype('int')
-                for z in range(0,len(subgrid_z)-1):
-                    z_ind = np.ceil([(subgrid_z[z]-subgrid_z[0])/2,
-                                    (subgrid_z[z+1] - subgrid_z[0])/2]).astype('int')
-                    sub_image = generate_recursive_chunked_representation(volume=volume,
-                                                                          info=info,
-                                                                          dtype=dtype,
-                                                                          directory=directory,
-                                                                          blurring_method=blurring_method,
-                                                                          S=S+1,
-                                                                          X=subgrid_x[x:x+2],
-                                                                          Y=subgrid_y[y:y+2],
-                                                                          Z=subgrid_z[z:z+2])
-                    sub_image = sub_image.reshape(sub_image.shape[:3])
-                    if blurring_method == 'mode':
-                        image[y_ind[0]:y_ind[1],x_ind[0]:x_ind[1],z_ind[0]:z_ind[1],0,0] = _mode3(sub_image)
-                    else:
-                        image[y_ind[0]:y_ind[1],x_ind[0]:x_ind[1],z_ind[0]:z_ind[1],0,0] = _avg3(sub_image)
+        def load_and_scale(*args,**kwargs):
+            if isinstance(volume, bfio.bfio.BioReader):
+                jutil.attach()
+                sub_image = generate_recursive_chunked_representation(**kwargs)
+                jutil.detach()
+            else:
+                sub_image = generate_recursive_chunked_representation(**kwargs)
+            image = args[0] 
+            x_ind = args[1]
+            y_ind = args[2]
+            z_ind = args[3]
+            if blurring_method == 'mode':
+                image[x_ind[0]:x_ind[1],y_ind[0]:y_ind[1],z_ind[0]:z_ind[1]] = _mode3(sub_image)
+            else:
+                image[x_ind[0]:x_ind[1],y_ind[0]:y_ind[1],z_ind[0]:z_ind[1]] = _avg3(sub_image)
+        
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            # Where each chunk gets mapped to.
+            for x in range(0,len(subgrid_x)-1):
+                x_ind = np.ceil([(subgrid_x[x]-subgrid_x[0])/2,
+                                (subgrid_x[x+1]-subgrid_x[0])/2]).astype('int')
+                for y in range(0,len(subgrid_y)-1):
+                    y_ind = np.ceil([(subgrid_y[y]-subgrid_y[0])/2,
+                                    (subgrid_y[y+1]-subgrid_y[0])/2]).astype('int')
+                    for z in range(0,len(subgrid_z)-1):
+                        z_ind = np.ceil([(subgrid_z[z]-subgrid_z[0])/2,
+                                        (subgrid_z[z+1] - subgrid_z[0])/2]).astype('int')
+                        executor.submit(load_and_scale, 
+                                        image, x_ind, y_ind, z_ind, 
+                                        X=subgrid_x[x:x+2],
+                                        Y=subgrid_y[y:y+2],
+                                        Z=subgrid_z[z:z+2],
+                                        S=S+1,
+                                        blurring_method=blurring_method,
+                                        directory=directory,
+                                        dtype=dtype,
+                                        info=info,
+                                        volume=volume)
 
         # Encode the chunk
         image_encoded = encode_volume(image)
