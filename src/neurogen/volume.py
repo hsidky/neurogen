@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
-import traceback 
+import traceback
 
 try:
     import javabridge as jutil
@@ -238,6 +238,10 @@ def generate_iterative_chunked_representation(volume,
     # Generate volumes of highest resolution first
     for i in range(num_scales):
 
+        if isinstance(volume, bfio.bfio.BioReader):
+            if (volume.shape) <= (1024,1024,1024,1,1):
+                volume = volume[:,:,:,0,0]
+
         # Intialize information from this scale
         key = info['scales'][i]['key']
         size = info['scales'][i]['size']
@@ -246,65 +250,243 @@ def generate_iterative_chunked_representation(volume,
         # Number of chunks in every dimension
         volumeshape = volume.shape
 
-        # Chunk Values
-        ysplits = list(np.arange(0, volumeshape[0], chunk_size[0]))
-        ysplits.append(volumeshape[0])
-        xsplits = list(np.arange(0, volumeshape[1], chunk_size[1]))
-        xsplits.append(volumeshape[1])
-        zsplits = list(np.arange(0, volumeshape[2], chunk_size[2]))
-        zsplits.append(volumeshape[2])
-
         # Initialize directory for scale
         volume_dir = os.path.join(directory, str(key))
 
-        blurred_image_shape = [int(np.ceil(d/2)) for d in volume.shape]
+        if i != 0:
+            blurred_image_shape = [int(np.ceil(d/2)) for d in blurred_image.shape]
+        else:
+            blurred_image_shape = blurred_image.shape
+        print("BLURRED IMAGE SHAPE (expected output): {}".format(blurred_image_shape))
+
+        # reshape_blurred = blurred_image_shape.append(1)
+        # reshape_blurred = reshape_blurred.append(1)
+        # blurred_image.reshape(reshape_blurred)
+
+        # Chunk Values
+        ysplits = list(np.arange(0, blurred_image_shape[0], chunk_size[0]))
+        ysplits.append(blurred_image_shape[0])
+        xsplits = list(np.arange(0, blurred_image_shape[1], chunk_size[1]))
+        xsplits.append(blurred_image_shape[1])
+        zsplits = list(np.arange(0, blurred_image_shape[2], chunk_size[2]))
+        zsplits.append(blurred_image_shape[2])
+        totalsplits = (len(ysplits)-1)*(len(xsplits)-1)*(len(zsplits)-1)
+
         
+
+        # if isinstance(volume, np.ndarray):
+        #     blurred_image = np.zeros(blurred_image_shape, dtype=volume.dtype)
+        
+        def load_and_save_chunk(subvolume, blurred_image, volume_directory, scale, blurring_method, 
+                                start_x, end_x, start_y, end_y, start_z, end_z):
+            
+            # print("scale {}: chunk {}-{}_{}-{}_{}-{}".format(scale,start_x, end_x, start_y, end_y, start_z, end_z))
+            subvolume = subvolume.reshape(subvolume.shape[:3])
+
+            encoded_subvolume = encode_volume(np.expand_dims(subvolume, 3))
+            write_image(image=encoded_subvolume, volume_directory=volume_directory,
+                        scale=scale, x=[start_y, end_y], y=[start_x, end_x], z= [start_z, end_z])
+
+            # For the next level of detail, the chunk is "blurred" and saved to new volume
+            blurred_subvolume = None
+            if blurring_method == 'mode':
+                blurred_subvolume = _mode3(subvolume)
+            else:
+                blurred_subvolume = _avg3(subvolume)
+            blurred_subvolume_shape = blurred_subvolume.shape
+
+            # Specify bounds for new volume
+            new_start_y = int(start_y/2)
+            new_start_x = int(start_x/2)
+            new_start_z = int(start_z/2)
+            new_end_y = new_start_y + blurred_subvolume_shape[0]
+            new_end_x = new_start_x + blurred_subvolume_shape[1]
+            new_end_z = new_start_z + blurred_subvolume_shape[2] 
+            
+            # print("BLURRED IMAGE SHAPE {} and BLURRED SUBVOLUME SHAPE {}".format(blurred_image[new_start_y:new_end_y,
+            #               new_start_x:new_end_x,
+            #               new_start_z:new_end_z,0,0].shape, blurred_subvolume.shape))
+            # Update values to new volume
+            blurred_image[new_start_y:new_end_y,
+                          new_start_x:new_end_x,
+                          new_start_z:new_end_z,0,0] = blurred_subvolume
+            
+
         for y in range(len(ysplits)-1):
             for x in range(len(xsplits)-1):
                 for z in range(len(zsplits)-1):
-                    start_x, end_x = (xsplits[x], xsplits[x+1])
                     start_y, end_y = (ysplits[y], ysplits[y+1])
+                    start_x, end_x = (xsplits[x], xsplits[x+1])
                     start_z, end_z = (zsplits[z], zsplits[z+1])
 
-                    # chunk of volume is saved to directory
-                    subvolume = volume[start_y:end_y,
-                                       start_x:end_x,
-                                       start_z:end_z]
-                    subvolume = subvolume.reshape(subvolume.shape[:3])
-                    
-                    encoded_subvolume = encode_volume(np.expand_dims(subvolume, 3))
-                    write_image(image=encoded_subvolume, volume_directory=volume_dir,
-                                scale=i, x=[start_y, end_y], y=[start_x, end_x], z= [start_z, end_z])
-
-                    # For the next level of detail, the chunk is "blurred" and saved to new volume
-                    blurred_volume = None
-                    if blurring_method == 'mode':
-                        blurred_subvolume = _mode3(subvolume)
+                    if isinstance(volume, bfio.bfio.BioReader):
+                        jutil.attach()
+                        subvolume = volume[start_y:end_y,
+                                           start_x:end_x,
+                                           start_z:end_z]
+                        jutil.detach()
                     else:
-                        blurred_subvolume = _avg3(subvolume)
-                    blurred_shape = blurred_subvolume.shape
-
-                    # Specify bounds for new volume
-                    new_start_x = int(start_x/2)
-                    new_start_y = int(start_y/2)
-                    new_start_z = int(start_z/2)
-                    new_end_x = new_start_x + blurred_shape[1]
-                    new_end_y = new_start_y + blurred_shape[0]
-                    new_end_z = new_start_z + blurred_shape[2] 
-                    
-                    # Save values to new volume
-                    blurred_image[new_start_y:new_end_y,
-                                  new_start_x:new_end_x,
-                                  new_start_z:new_end_z,0,0] = blurred_subvolume
-                    
+                        subvolume = volume[start_y:end_y,
+                                           start_x:end_x,
+                                           start_z:end_z]
+                    # if totalsplits>=4:
+                    #     with ThreadPoolExecutor(max_workers=8) as executor:
+                            
+                    #         executor.submit(load_and_save_chunk(subvolume = subvolume,
+                    #                                             blurred_image = blurred_image,
+                    #                                             volume_directory=volume_dir,
+                    #                                             scale=i,
+                    #                                             blurring_method=blurring_method,
+                    #                                             start_x=start_x, end_x=end_x,
+                    #                                             start_y=start_y, end_y=end_y,
+                    #                                             start_z=start_z, end_z=end_z))
+                    # else:
+                        load_and_save_chunk(subvolume=subvolume,
+                                        blurred_image=blurred_image,
+                                        volume_directory=volume_dir,
+                                        scale=i,
+                                        blurring_method=blurring_method,
+                                        start_x=start_x, end_x=end_x,
+                                        start_y=start_y, end_y=end_y,
+                                        start_z=start_z, end_z=end_z)
 
         # update current to be averaged volume (which is half in size)
-        volume = blurred_image[:blurred_image_shape[1],
-                               :blurred_image_shape[0],
-                               :blurred_image_shape[2],0,0]
+        # reshape_array = list(blurred_image_shape)
+        # reshape_array.append(1)
+        # reshape_array.append(1)
+
+        volume[:blurred_image_shape[0],
+               :blurred_image_shape[1],
+               :blurred_image_shape[2],0,0] = blurred_image[:blurred_image_shape[0],
+                                                            :blurred_image_shape[1],
+                                                            :blurred_image_shape[2],0,0]
+        blurred_image = np.zeros(blurred_image_shape)
+        print(" ")
+    
+    for lower_res in range(i+1, num_scales):
+        print("starting at {}".format(lower_res))
+
 
     return volume
 
+# def generate_iterative_chunked_representation(volume,
+#                                     info,
+#                                     directory,
+#                                     blurring_method='mode',
+#                                     blurred_image=None):
+
+#     """ Generates pyramids of the volume 
+#     https://en.wikipedia.org/wiki/Pyramid_(image_processing) 
+#     Parameters
+#     ----------
+#     volume : numpy array
+#         A 5D (YXZCT) numpy array representing a volume
+#     info : dict
+#         The "info JSON file specification" that is required by Neuroglancer as a dict.
+#     directory : str
+#         Neuroglancer precomputed volume directory.
+#     blurring_method : str
+#         Either the average or the mode is taken for blurring to generate the pyramids.
+#         Average - better for Images
+#         Mode - better for Labelled Data
+#     Returns
+#     -------
+#     Pyramids of the volume with a chunk representation as specified by the info JSON 
+#     file specification in the output directory.
+#     """
+
+#     if blurred_image == None:
+#         blurred_image = np.zeros(volume.shape, dtype=volume.dtype)
+
+#     # Initialize information from info file
+#     num_scales = len(info['scales'])
+
+#     # Loop through all scales
+#     # Generate volumes of highest resolution first
+#     for i in range(num_scales):
+
+#         # Intialize information from this scale
+#         key = info['scales'][i]['key']
+#         size = info['scales'][i]['size']
+#         chunk_size = info['scales'][i]['chunk_sizes'][0]
+
+#         # Number of chunks in every dimension
+#         volumeshape = volume.shape
+
+#         # Chunk Values
+#         ysplits = list(np.arange(0, volumeshape[0], chunk_size[0]))
+#         ysplits.append(volumeshape[0])
+#         xsplits = list(np.arange(0, volumeshape[1], chunk_size[1]))
+#         xsplits.append(volumeshape[1])
+#         zsplits = list(np.arange(0, volumeshape[2], chunk_size[2]))
+#         zsplits.append(volumeshape[2])
+
+#         # Initialize directory for scale
+#         volume_dir = os.path.join(directory, str(key))
+
+#         blurred_image_shape = [int(np.ceil(d/2)) for d in volume.shape]
+#         print(len(ysplits), len(xsplits), len(zsplits))
+
+#         def load_save_chunk(subvolume, 
+#                         volume_directory,
+#                         scale,
+#                         start_y, end_y, 
+#                         start_x, end_x, 
+#                         start_z, end_z):
+
+#             subvolume = subvolume.reshape(subvolume.shape[:3])
+#             encoded_subvolume = encode_volume(np.expand_dims(subvolume, 3))
+#             write_image(image=encoded_subvolume, volume_directory=volume_directory,
+#                         scale=scale, x=[start_y, end_y], y=[start_x, end_x], z=[start_z, end_z])
+
+#             # For the next level of detail, the chunk is "blurred" and saved to new volume
+#             blurred_volume = None
+#             if blurring_method == 'mode':
+#                 blurred_subvolume = _mode3(subvolume)
+#             else:
+#                 blurred_subvolume = _avg3(subvolume)
+#             blurred_subvolume_shape = blurred_subvolume.shape
+
+#             # Specify bounds for new volume
+#             new_start_y = int(start_y/2)
+#             new_start_x = int(start_x/2)
+#             new_start_z = int(start_z/2)
+#             new_end_y = new_start_y + blurred_subvolume_shape[0]
+#             new_end_x = new_start_x + blurred_subvolume_shape[1]
+#             new_end_z = new_start_z + blurred_subvolume_shape[2] 
+                    
+#             # Save values to new volume
+#             blurred_image[new_start_y:new_end_y,
+#                             new_start_x:new_end_x,
+#                             new_start_z:new_end_z,0,0] = blurred_subvolume
+                    
+
+#         for y in range(len(ysplits)-1):
+#             for x in range(len(xsplits)-1):
+#                 for z in range(len(zsplits)-1):
+#                     start_y, end_y = (ysplits[y], ysplits[y+1])
+#                     start_x, end_x = (xsplits[x], xsplits[x+1])
+#                     start_z, end_z = (zsplits[z], zsplits[z+1])
+#                     print("Node {}, {}, {} ranges from ({}-{}, {}-{}, {}-{})".format(y,x,z,start_y,end_y, start_x, end_x, start_z, end_z))
+
+
+#                     # save chunk of volume is saved to directory
+#                     load_save_chunk(subvolume=volume[start_y:end_y,
+#                                                      start_x:end_x,
+#                                                      start_z:end_z],
+#                                     volume_director=volume_dir,
+#                                     scale=i,
+#                                     start_y=start_y, end_y=end_y,
+#                                     start_x=start_x, end_x=end_x,
+#                                     start_z=start_z, end_z=end_z)
+                    
+
+#         # update current to be averaged volume (which is half in size)
+#         volume = blurred_image[:blurred_image_shape[1],
+#                                :blurred_image_shape[0],
+#                                :blurred_image_shape[2],0,0]
+
+#     return volume
 
 def generate_recursive_chunked_representation(volume, info, dtype, directory, blurring_method='mode', S=0, X=None,Y=None,Z=None):
 
