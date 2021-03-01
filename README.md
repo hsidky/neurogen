@@ -33,8 +33,8 @@ import info as nginfo
 
 
 # Unzip tar  file into appropriate directory
-input = "/home/ubuntu/neurogen/src/neurogen/cthead_input/"
-output = "/home/ubuntu/neurogen/src/neurogen/output/"
+input = "/cthead_input/"
+output = "/output/"
 
 #  Generate Input
 volume = np.zeros((256,256,113,1,1)).astype('uint8')
