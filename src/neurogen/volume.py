@@ -342,9 +342,6 @@ def generate_iterative_chunked_representation(volume,
                                                             :blurred_image_shape[1],
                                                             :blurred_image_shape[2],0,0]
         blurred_image = np.zeros(blurred_image_shape)
-    
-    for lower_res in range(i+1, num_scales):
-        print("starting at {}".format(lower_res))
 
     return volume
 
