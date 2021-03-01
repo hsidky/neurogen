@@ -8,9 +8,13 @@ The two types of outputs it can create are:
 
 
 **Installation**
+
 ```
 pip intall neurogen --recursive-submodules
 ```
+
+To set up local environment:
+https://github.com/google/neuroglancer#building
 
 **Volume Generation Example**
 
@@ -81,3 +85,4 @@ encodedvolume = ngvolume.generate_recursive_chunked_representation(volume,
 
 
 ```
+![plot](volume_generation_image.png)
