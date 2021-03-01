@@ -269,18 +269,51 @@ def info_mesh(directory,
               dtype,
               chunk_size,
               size,
+              resolution = [325,325,325],
               ids=None,
               labelled_ids = None,
-              resolution = [325,325,325],
-              segmentation_subdirectory=None,
               mesh_subdirectory='meshdir',
-              bit_depth=16):
+              bit_depth=16,
+              segmentation_subdirectory=None):
+
+    """ 
+    This function generates the info files and initializes the directories 
+    for meshes in Neuroglancer.
+
+    Parameters
+    ----------
+    directory : str
+        Output directory that info file will be saved to
+    dtype : type
+        Datatype of the input
+    chunk_size : list
+        Size of chunks
+    size : list
+        Size of input data
+    resolution : list
+        Resolution of input data in nanometers
+        If none, defaults to [325, 325, 325] (nm)
+    ids : list
+        List of the labelled ids in input dataset
+    labelled_ids : list
+        List of the names to label each segment id
+    mesh_subdirectory : str
+        Subdirectory of meshes
+    bit_depth : int
+        Number of bits for mesh vertex quantization. Can only be 10 or 16. 
+    segment_subdirectory : str
+        Subdirectory of info file for segment_properties
+    """
 
     if (segmentation_subdirectory) or (ids) or (labelled_ids):
         assert segmentation_subdirectory
         assert ids.any()
     
-    mesh_json = mesh_info(dtype=dtype, chunk_size=chunk_size, size=size, resolution=resolution, mesh_subdirectory=mesh_subdirectory)
+    mesh_json = mesh_info(dtype=dtype, 
+                          chunk_size=chunk_size, 
+                          size=size, 
+                          resolution=resolution, 
+                          mesh_subdirectory=mesh_subdirectory)
 
     if segmentation_subdirectory == None:
         info = mesh_json.info
