@@ -2,8 +2,8 @@
 
 Neurogen is a library for converting data into compatible formats with Neuroglancer.
 The two types of outputs it can create are:
-1) Mutli-resolutional meshes
-2) Volume generation
+1) Volume generation
+2) Mutli-resolutional meshes
 
 
 
@@ -12,11 +12,12 @@ The two types of outputs it can create are:
 pip intall neurogen --recursive-submodules
 ```
 
-**Examples**
-Volume Generation 
+**Volume Generation Example**
+
 
 Download example data and save in appropriate directory:
 http://graphics.stanford.edu/data/voldata/cthead-8bit.tar.gz
+
 More details of data: http://graphics.stanford.edu/data/voldata/
 
 ```python
@@ -28,12 +29,12 @@ import volume as ngvolume
 import mesh as ngmesh
 
 
-# Unzip tar  file into appropriate directory
-input = "/home/ubuntu/neurogen/src/neurogen/cthead_input/"
-output = "/home/ubuntu/neurogen/src/neurogen/output/"
+# Unzip tar file into appropriate directory
+input = "/home/input"
+output = "/home/output"
 
 #  Generate Input
-volume = np.zeros((256,256,113,1,1)).astype('uint8')
+volume = np.zeros((256,256,113,1,1)).astype('uint8') 
 for filename in os.listdir(input):
     index = int(filename[11:14])
     filename = os.path.join(input,filename)
@@ -41,6 +42,7 @@ for filename in os.listdir(input):
     imarray = np.array(image)
     volume[:,:,index,0,0] = imarray.astype('uint8')
 
+# Generate the info specification file with the appropriate data
 info = {
     "@type": "neuroglancer_multiscale_volume",
     "data_type": "uint8",
