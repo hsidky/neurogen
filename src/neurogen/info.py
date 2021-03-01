@@ -3,6 +3,8 @@ import json
 import numpy as np
 
 class class_info:
+    """ This class initializes the header for the info json specification file
+    https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/volume.md """
 
     def __init__(self, dtype, chunk_size, size, resolution):
         scales = scaling(chunk_size,
@@ -16,13 +18,16 @@ class class_info:
         }
 
 class image_info(class_info):
+    """ This class inherits class_info and add the type """ 
 
-     def __init__(self, dtype, chunk_size, size, resolution):
+    def __init__(self, dtype, chunk_size, size, resolution):
         class_info.__init__(self, dtype, chunk_size, size, resolution)
         info = self.info
         info['type'] =  "image"
 
 class segmentation_info(class_info):
+    """ This class inherits class_info and add the type
+        It also creates labels for the segments if specified """ 
 
     def __init__(self, dtype, chunk_size, size, resolution):
         class_info.__init__(self, dtype, chunk_size, size, resolution)
@@ -63,6 +68,8 @@ class segmentation_info(class_info):
         return self.info, self.segmentation_info
 
 class mesh_info(class_info):
+    """ This class inherits class_info and add the type for segmentation.
+        It also creates labels for the segments if specified """ 
 
     def __init__(self, dtype, chunk_size, size, resolution, mesh_subdirectory):
 
