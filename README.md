@@ -72,7 +72,11 @@ info = {
 
 with open(os.path.join(output,"info"), 'w') as info_file:
     json.dump(info, info_file)
-encodedvolume = ngvolume.generate_recursive_chunked_representation(volume, info, dtype=volume.dtype, directory=output,blurring_method='average')
+encodedvolume = ngvolume.generate_recursive_chunked_representation(volume, 
+                                                                   info, 
+                                                                   dtype=volume.dtype, 
+                                                                   directory=output,
+                                                                   blurring_method='average')
 
 
 
