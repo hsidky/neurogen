@@ -190,6 +190,24 @@ def _avg3(image):
 
 
 def write_image(image, volume_directory, scale, x, y, z):
+    """ This function writes the images to the volume directories 
+    
+    Parameters
+    ----------
+    image - numpy array
+        Array that is being converted and written
+    volume - str
+        Output directory the image is saved to
+    scale - int
+        Name of sub-directory the image is saved to
+    x - list
+        Range of the x dimension for the image
+    y - list 
+        Range of the y dimension for the image
+    z - list 
+        Range of the z dimension for the image
+    """
+
     if not os.path.exists(volume_directory):
             os.makedirs(volume_directory, exist_ok=True)
     file_name = "{}-{}_{}-{}_{}-{}".format(str(x[0]), str(x[1]),
