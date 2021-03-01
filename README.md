@@ -25,8 +25,8 @@ import numpy as np
 import os
 from PIL import Image
 import json
-import volume as ngvolume
-import mesh as ngmesh
+from neurogen import volume as ngvolume
+from neurogen import mesh as ngmesh
 
 
 # Unzip tar file into appropriate directory
