@@ -79,6 +79,9 @@ class mesh_info(class_info):
         self.info = info
         
     def get_multires_mesh_format(self, bit_depth):
+        """ More information can be found on:
+        https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/meshes.md#multi-resolution-mesh-format """
+        
         info = self.info
         resolution = info['scales'][0]['resolution']
 
