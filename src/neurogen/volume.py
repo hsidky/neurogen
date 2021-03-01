@@ -1,7 +1,7 @@
 import os
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
-import traceback
+
 
 try:
     import javabridge as jutil

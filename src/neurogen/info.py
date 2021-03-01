@@ -3,6 +3,7 @@ import json
 import numpy as np
 
 class class_info:
+
     def __init__(self, dtype, chunk_size, size, resolution):
         scales = scaling(chunk_size,
                          size,
@@ -15,6 +16,7 @@ class class_info:
         }
 
 class image_info(class_info):
+
      def __init__(self, dtype, chunk_size, size, resolution):
         class_info.__init__(self, dtype, chunk_size, size, resolution)
         info = self.info
@@ -25,9 +27,14 @@ class segmentation_info(class_info):
     def __init__(self, dtype, chunk_size, size, resolution):
         class_info.__init__(self, dtype, chunk_size, size, resolution)
         info = self.info
-        info['type'] =  "segmentation"
-    
-    def segment_properties(self, ids, labelled_ids):
+        info['type'] =  'segmentation'
+        self.info = info
+
+    def get_segment_properties(self, ids, labelled_ids, subdirectory):
+
+        info = self.info
+        info['segment_properties'] = subdirectory
+        self.info = info
 
         str_ids = [str(id) for id in ids]
         if (labelled_ids == None):
@@ -53,6 +60,61 @@ class segmentation_info(class_info):
             "@type": "neuroglancer_segment_properties",
             "inline": ids_info
         }
+        return self.info, self.segmentation_info
+
+class mesh_info(class_info):
+
+    def __init__(self, dtype, chunk_size, size, resolution, mesh_subdirectory):
+
+        class_info.__init__(self, dtype, chunk_size, size, resolution)
+        info = self.info
+        info['mesh'] =  mesh_subdirectory
+        self.info = info
+        
+    def get_multires_mesh_format(self, bit_depth):
+        info = self.info
+        resolution = info['scales'][0]['resolution']
+
+        self.multires_mesh_format = {
+            "@type" : "neuroglancer_multilod_draco",
+            "lod_scale_multiplier" : 1,
+            "transform" : [resolution[0], 0, 0,0,
+                           0, resolution[1], 0,0,
+                           0, 0, resolution[2],0],
+            "vertex_quantization_bits" : bit_depth 
+            }
+
+    def get_segment_properties(self, ids, labelled_ids, segmentation_subdirectory):
+        info = self.info
+        info['segment_properties'] = segmentation_subdirectory
+        self.info = info
+
+        str_ids = [str(id) for id in ids]
+        if (labelled_ids == None):
+            labelled_ids = ["ID_"+str(id) for id in ids]
+
+        ids_info = {
+        "ids": str_ids,
+        "properties":[
+            {
+            "id":"label",
+            "type":"label",
+            "values": labelled_ids
+            },
+            {
+            "id":"description",
+            "type":"label",
+            "values": str_ids
+            }
+            ]
+        }
+
+        self.segmentation_info = {
+            "@type": "neuroglancer_segment_properties",
+            "inline": ids_info
+        }
+        
+        return self.info, self.segmentation_info
 
 
 def scaling(chunk_size,
@@ -127,8 +189,8 @@ def info_image(directory,
         If none, defaults to [325, 325, 325] (nm)
     """
 
-    info_class = image_info(dtype, chunk_size, size, resolution)
-    info = info_class.info
+    image_json = image_info(dtype, chunk_size, size, resolution)
+    info = image_json.info
     
 
     # Write the info file to appropriate directory
@@ -141,21 +203,19 @@ def info_image(directory,
     return info
 
 
-def info_segmentation(ids,
-                      directory,
+def info_segmentation(directory,
                       dtype,
                       chunk_size,
                       size,
-                      segmentation_directory,
                       resolution=[325,325,325],
-                      labelled_ids=None):
+                      ids=None,
+                      labelled_ids=None,
+                      segmentation_subdirectory=None):
     """ 
     This function generates the info file to be used for images 
     in Neuroglancer.
     Parameters
     ----------
-    ids : list
-        List of the labelled ids in input dataset
     directory : str
         Output directory that info file will be saved to
     dtype : type
@@ -167,14 +227,26 @@ def info_segmentation(ids,
     resolution : list
         Resolution of input data in nanometers
         If none, defaults to [325, 325, 325] (nm)
+    ids : list
+        List of the labelled ids in input dataset
     labelled_ids : list
         List of the names to label each segment id
+    segment_subdirectory : str
+        Subdirectory of info file for segment_properties
     """
 
-    info_class = segmentation_info(dtype, chunk_size, size, resolution)
+    if (segmentation_subdirectory) or (ids) or (labelled_ids):
+        assert segmentation_subdirectory
+        assert ids.any()
+        # assert labelled_ids.any()
 
-    info = info_class.info
-    segmentation_info = segmentation_info.segment_properties 
+    segmentation_json = segmentation_info(dtype, chunk_size, size, resolution)
+    
+    # segment properties is optional
+    if segmentation_subdirectory == None:
+        info = segmentation_json.info
+    else:
+        info, segment_properties = segmentation_json.get_segment_properties(ids,labelled_ids,segmentation_subdirectory)
 
     # Write the info file to appropriate directory
     if not os.path.exists(directory):
@@ -182,12 +254,58 @@ def info_segmentation(ids,
     with open(os.path.join(directory,"info"), 'w') as info_file:
         json.dump(info, info_file)
 
-    # Write the segment properties to appropriate sub-directory
-    output = os.path.join(directory,segmentation_directory)
-    if not os.path.exists(output):
-        os.makedirs(output, exist_ok=True)
-    with open(os.path.join(output,"info"), "w") as segment_info_file:
-        json.dump(segmentation_info, segment_info_file)
+    if (segmentation_subdirectory != None):
+        # Write the segment properties to appropriate sub-directory
+        output = os.path.join(directory,segmentation_subdirectory)
+        if not os.path.exists(output):
+            os.makedirs(output, exist_ok=True)
+        with open(os.path.join(output,"info"), "w") as segment_info_file:
+            json.dump(segment_properties, segment_info_file)
     
     # return dictionary
     return info
+
+def info_mesh(directory,
+              dtype,
+              chunk_size,
+              size,
+              ids=None,
+              labelled_ids = None,
+              resolution = [325,325,325],
+              segmentation_subdirectory=None,
+              mesh_subdirectory='meshdir',
+              bit_depth=16):
+
+    if (segmentation_subdirectory) or (ids) or (labelled_ids):
+        assert segmentation_subdirectory
+        assert ids.any()
+    
+    mesh_json = mesh_info(dtype=dtype, chunk_size=chunk_size, size=size, resolution=resolution, mesh_subdirectory=mesh_subdirectory)
+
+    if segmentation_subdirectory == None:
+        info = mesh_json.info
+        multires_mesh_format = mesh_json.get_multires_mesh_format(bit_depth=bit_depth)
+    else:
+        info, segment_properties = mesh_json.get_segment_properties(ids, labelled_ids, segmentation_subdirectory)
+        multires_mesh_format = mesh_json.get_multires_mesh_format(bit_depth=bit_depth)
+
+
+    # Write the info file to appropriate directory
+    if not os.path.exists(directory):
+        os.makedirs(directory, exist_ok=True)
+    with open(os.path.join(directory,"info"), 'w') as info_file:
+        json.dump(info, info_file)
+
+    output_mesh  = os.path.join(directory, mesh_subdirectory)
+    if not os.path.exists(output_mesh):
+        os.makedirs(output_mesh, exist_ok=True)
+    with open(os.path.join(output_mesh, "info"), 'w') as mesh_info_file:
+        json.dump(multires_mesh_format,mesh_info_file)
+    
+    if (segmentation_subdirectory != None):
+        # Write the segment properties to appropriate sub-directory
+        output = os.path.join(directory,segmentation_subdirectory)
+        if not os.path.exists(output):
+            os.makedirs(output, exist_ok=True)
+        with open(os.path.join(output,"info"), "w") as segment_info_file:
+            json.dump(segment_properties, segment_info_file)
