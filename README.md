@@ -19,7 +19,7 @@ https://github.com/google/neuroglancer#building
 **Volume Generation Example**
 
 
-Download example data and save in appropriate directory:
+Download example data and unzip in appropriate input directory:
 http://graphics.stanford.edu/data/voldata/cthead-8bit.tar.gz
 
 More details of data: http://graphics.stanford.edu/data/voldata/
