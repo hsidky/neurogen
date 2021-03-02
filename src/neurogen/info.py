@@ -75,7 +75,8 @@ class mesh_info(class_info):
 
         class_info.__init__(self, dtype, chunk_size, size, resolution)
         info = self.info
-        info['mesh'] =  mesh_subdirectory
+        info['mesh'] = mesh_subdirectory
+        info['type'] = 'segmentation'
         self.info = info
         
     def get_multires_mesh_format(self, bit_depth):
