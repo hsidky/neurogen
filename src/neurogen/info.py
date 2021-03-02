@@ -93,6 +93,8 @@ class mesh_info(class_info):
                            0, 0, resolution[2],0],
             "vertex_quantization_bits" : bit_depth 
             }
+        
+        return self.multires_mesh_format
 
     def get_segment_properties(self, ids, labelled_ids, segmentation_subdirectory):
         info = self.info
@@ -352,3 +354,5 @@ def info_mesh(directory,
             os.makedirs(output, exist_ok=True)
         with open(os.path.join(output,"info"), "w") as segment_info_file:
             json.dump(segment_properties, segment_info_file)
+            
+    return info
