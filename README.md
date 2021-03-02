@@ -87,7 +87,7 @@ for filename in os.listdir(input):
     imarray = np.array(image)
     volume[:,:,index,0,0] = imarray.astype('uint8')
 
-volume_info = nginfo.info_mesh(directory=output, 
+info = nginfo.info_mesh(directory=output, 
                                 dtype=volume.dtype, 
                                 chunk_size=[256,256,256],
                                 size=volume.shape,
@@ -95,7 +95,7 @@ volume_info = nginfo.info_mesh(directory=output,
                                 segmentation_subdirectory = "segment_properties")
 
 encodedvolume = ngvolume.generate_recursive_chunked_representation(volume, 
-                volume_info, dtype=volume.dtype, directory=output,blurring_method='average')
+                info, dtype=volume.dtype, directory=output)
 
 IDS = np.unique(volume)
 for iden in IDS[1:]:
