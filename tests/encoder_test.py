@@ -4,11 +4,14 @@ import numpy as np
 import math
 import tempfile
 import struct
+import imageio
+
 from neurogen import encoder
 from neurogen import mesh
+from neurogen import info as nginfo
+from neurogen import volume as ngvol
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
-
 
 class TestEncodingDecoding(unittest.TestCase):
     def test_encode_decode(self):
@@ -25,6 +28,22 @@ class TestEncodingDecoding(unittest.TestCase):
             )
         )
     
+    def test_info_file_specification(self):
+        sphere_png = './test_data/sphere_png/'
+        volume = np.zeros((102,102,101,1,1)).astype('uint8')
+        for png in os.listdir(sphere_png):
+            im = imageio.imread(os.path.join(sphere_png, png))
+            index = int(png[6:10])
+            volume[:,:,index,0,0] = im
+        temp_dir = tempfile.TemporaryDirectory()
+        info_dict = nginfo.info_image(directory=str(temp_dir),
+                               dtype=volume.dtype,
+                               chunk_size=[64,64,64],
+                               size=volume.shape)
+        self.assertTrue(info_dict['scales'][-1]['size'] == [1,1,1])
+        
+
+
     def test_mesh_generation(self):
         vertices = np.loadtxt(os.path.join(dir_path, 'test_data/sphere_vertices.npy')).astype(np.uint32)
         faces = np.loadtxt(os.path.join(dir_path, 'test_data/sphere_faces.npy')).astype(np.uint32)
