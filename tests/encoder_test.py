@@ -47,7 +47,7 @@ class TestEncodingDecoding(unittest.TestCase):
                 num_lods = int(struct.unpack("<I",manifest_file.read(4))[0])
                 lod_scales = list((struct.unpack("<"+ str(num_lods)+ "f",manifest_file.read(num_lods*4))))
 
-                self.assertTrue(((vertices.max(axis=0)-vertices.min(axis=0))/2**(num_lods) == chunkshapes).all())
+                self.assertTrue(((vertices.max(axis=0)-vertices.min(axis=0))/(num_lods) == chunkshapes).all())
                 self.assertTrue((vertices.min(axis=0)==gridorigin).all())
                 self.assertTrue(len(lod_scales)==num_lods)
 
