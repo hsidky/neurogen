@@ -353,6 +353,7 @@ def generate_iterative_chunked_representation(volume,
                                         start_x=start_x, end_x=end_x,
                                         start_y=start_y, end_y=end_y,
                                         start_z=start_z, end_z=end_z)
+        executor.shutdown(wait=True)
 
         volume[:blurred_image_shape[0],
                :blurred_image_shape[1],
