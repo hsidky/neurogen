@@ -7,7 +7,7 @@ import struct
 import imageio
 
 from neurogen import encoder
-from neurogen import mesh
+from neurogen import mesh as ngmesh
 from neurogen import info as nginfo
 from neurogen import volume as ngvol
 
@@ -35,11 +35,11 @@ class TestEncodingDecoding(unittest.TestCase):
             im = imageio.imread(os.path.join(sphere_png, png))
             index = int(png[6:10])
             volume[:,:,index,0,0] = im
-        temp_dir = tempfile.TemporaryDirectory()
-        info_dict = nginfo.info_image(directory=str(temp_dir),
-                               dtype=volume.dtype,
-                               chunk_size=[64,64,64],
-                               size=volume.shape)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            info_dict = nginfo.info_image(directory=str(temp_dir),
+                                          dtype=volume.dtype,
+                                          chunk_size=[64,64,64],
+                                          size=volume.shape)
         self.assertTrue(info_dict['scales'][-1]['size'] == [1,1,1])
         
 
@@ -52,7 +52,7 @@ class TestEncodingDecoding(unittest.TestCase):
         # temp_dir = tempfile.TemporaryDirectory()
         with tempfile.TemporaryDirectory() as temp_dir:
             offset_check = 0
-            mesh.fulloctree_decomposition(vertices=vertices, 
+            ngmesh.fulloctree_decomposition(vertices=vertices, 
                                           faces=faces, 
                                           num_lods=3, 
                                           segment_id=1, 
