@@ -35,6 +35,7 @@ class TestEncodingDecoding(unittest.TestCase):
             im = imageio.imread(os.path.join(sphere_png, png))
             index = int(png[6:10])
             volume[:,:,index,0,0] = im
+
         with tempfile.TemporaryDirectory() as temp_dir:
             info_dict = nginfo.info_image(directory=str(temp_dir),
                                           dtype=volume.dtype,
@@ -58,17 +59,11 @@ class TestEncodingDecoding(unittest.TestCase):
                 yfiles = np.ceil(scale_size[1]/64)
                 zfiles = np.ceil(scale_size[2]/64)
                 self.assertTrue(xfiles*yfiles*zfiles == num_directories)
-            
-
-        
-        
-
 
     def test_mesh_generation(self):
         vertices = np.loadtxt(os.path.join(dir_path, 'test_data/sphere_vertices.npy')).astype(np.uint32)
         faces = np.loadtxt(os.path.join(dir_path, 'test_data/sphere_faces.npy')).astype(np.uint32)
 
-        
         # temp_dir = tempfile.TemporaryDirectory()
         with tempfile.TemporaryDirectory() as temp_dir:
             offset_check = 0
