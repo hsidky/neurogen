@@ -153,7 +153,7 @@ def scaling(chunk_size,
         A list of all the scales concatenated in order
     """
     # The number of scales based on the size of the input
-    num_scales = np.floor(np.log2(max(size))).astype('int')
+    num_scales = np.floor(np.log2(max(size))).astype('int')+1
 
     scales = []
     for i in range(num_scales+1):
