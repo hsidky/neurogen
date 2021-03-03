@@ -2,7 +2,7 @@ import trimesh
 import numpy as np
 import pandas as pd
 import os, struct, json
-import encoder
+from neurogen import encoder
 
 class Quantize():
     """
