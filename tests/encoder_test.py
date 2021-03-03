@@ -40,7 +40,27 @@ class TestEncodingDecoding(unittest.TestCase):
                                           dtype=volume.dtype,
                                           chunk_size=[64,64,64],
                                           size=volume.shape)
-        self.assertTrue(info_dict['scales'][-1]['size'] == [1,1,1])
+            scales = info_dict['scales']
+            num_scales = len(scales)
+            self.assertTrue(info_dict['scales'][-1]['size'] == [1,1,1])
+
+            encodevolume = ngvol.generate_recursive_chunked_representation(volume=volume,
+                                                                           info=info_dict,
+                                                                           dtype=volume.dtype,
+                                                                           directory=temp_dir,
+                                                                           blurring_method='average')
+            for i in range(num_scales):
+                scale_key = scales[i]['key']
+                scale_dir = os.path.join(str(temp_dir), scale_key)
+                scale_size = scales[i]['size']
+                num_directories = len(os.listdir(scale_dir))
+                xfiles = np.ceil(scale_size[0]/64)
+                yfiles = np.ceil(scale_size[1]/64)
+                zfiles = np.ceil(scale_size[2]/64)
+                self.assertTrue(xfiles*yfiles*zfiles == num_directories)
+            
+
+        
         
 
 
