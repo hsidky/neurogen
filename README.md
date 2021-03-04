@@ -64,6 +64,7 @@ encodedvolume = ngvolume.generate_recursive_chunked_representation(volume,
 **Mesh Generation Example (with Volume Generation)**
 
 Download .STL file from https://www.thingiverse.com/thing:11622
+
 Convert .STL file to images: https://github.com/cpederkoff/stl-to-voxel
 
 
