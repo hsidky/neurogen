@@ -9,7 +9,7 @@ The two types of outputs it can create are:
 
 **Installation**
 
-```
+```Ubuntu
 pip intall neurogen --recursive-submodules
 ```
 
@@ -66,12 +66,13 @@ encodedvolume = ngvolume.generate_recursive_chunked_representation(volume,
 Download .STL file from https://www.thingiverse.com/thing:11622
 Convert .STL file to images: https://github.com/cpederkoff/stl-to-voxel
 
-Command line 
-```
+
+```Ubuntu
 mkdir bunny_pngs
 git clone https://github.com/cpederkoff/stl-to-voxel
 python3 stl-to-voxel/stltovoxel.py/bunny.stl /bunny_pngs/bunny.png
 ```
+
 
 ```python
 import numpy as np
