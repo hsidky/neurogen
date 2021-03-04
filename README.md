@@ -28,8 +28,8 @@ More details of data: http://graphics.stanford.edu/data/voldata/
 import numpy as np
 import os
 from PIL import Image
-import volume as ngvolume
-import info as nginfo
+from neurogen import volume as ngvolume
+from neurogen import info as nginfo
 
 
 # Unzip tar  file into appropriate directory
@@ -61,46 +61,59 @@ encodedvolume = ngvolume.generate_recursive_chunked_representation(volume,
 ![plot](volume_generation_image.png)
 
 
-**Mesh Generation Example**
+**Mesh Generation Example (with Volume Generation)**
+
+Download .STL file from https://www.thingiverse.com/thing:11622
+Convert .STL file to images: https://github.com/cpederkoff/stl-to-voxel
+
+Command line 
+```
+mkdir bunny_pngs
+git clone https://github.com/cpederkoff/stl-to-voxel
+python3 stl-to-voxel/stltovoxel.py/bunny.stl /bunny_pngs/bunny.png
+```
 
 ```python
 import numpy as np
 import os
-from PIL import Image
-import volume as ngvolume
-import mesh as ngmesh
-import info as nginfo
+import imageio
+
+from neurogen import volume as ngvolume
+from neurogen import mesh as ngmesh
+from neurogen import info as nginfo
 
 from skimage import measure
 import trimesh
 
 # Unzip tar  file into appropriate directory
-input = "./cthead_input/"
+input = "./bunny_pngs/"
 output = "./output/"
 
 #  Generate Input
-volume = np.zeros((256,256,113,1,1)).astype('uint8')
-for filename in os.listdir(input):
-    index = int(filename[11:14])
-    filename = os.path.join(input,filename)
-    image = Image.open(filename)
-    imarray = np.array(image)
-    volume[:,:,index,0,0] = imarray.astype('uint8')
+volume = np.zeros((102,102,99,1,1)).astype('uint8')
+for png in os.listdir(input):
+    im = imageio.imread(os.path.join(input, png))
+    index = int(png[5:8])
+    volume[:,:,index,0,0] = im
+
+IDS = np.unique(volume)
+IDS = np.delete(IDS, 0) # remove the zero in list
 
 info = nginfo.info_mesh(directory=output, 
-                                dtype=volume.dtype, 
-                                chunk_size=[256,256,256],
-                                size=volume.shape,
-                                ids = np.unique(volume),
-                                segmentation_subdirectory = "segment_properties")
+                        dtype=volume.dtype, 
+                        chunk_size=[256,256,256],
+                        size=volume.shape,
+                        ids = IDS,
+                        labelled_ids = ['bunny'],
+                        segmentation_subdirectory = "segment_properties")
 
 encodedvolume = ngvolume.generate_recursive_chunked_representation(volume, 
                 info, dtype=volume.dtype, directory=output)
 
-IDS = np.unique(volume)
-for iden in IDS[1:]:
+for iden in IDS:
+    print(iden)
     vertices,faces,_,_ = measure.marching_cubes((volume[:,:,:,0,0]==iden).astype("uint8"), level=0, step_size=1)
     mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
     ngmesh.fulloctree_decomposition_mesh(mesh, num_lods=1, segment_id=iden, directory=output)
 ```
-![plot](mesh_generation_image.png)
+![plot](neuroglancer_bunny.png)
