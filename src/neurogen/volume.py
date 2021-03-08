@@ -2,7 +2,6 @@ import os
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 
-
 try:
     import javabridge as jutil
     import bfio
@@ -364,6 +363,7 @@ def generate_iterative_chunked_representation(volume,
 
     return volume
 
+
 def generate_recursive_chunked_representation(volume, info, dtype, directory, blurring_method='mode', S=0, X=None,Y=None,Z=None):
 
     """ Recursive function for pyramid building
@@ -450,7 +450,7 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
     if str(S)==all_scales[0]['key']:
 
         # Taking a chunk of the input
-        image = volume[Y[0]:Y[1],X[0]:X[1],Z[0]:Z[1]]
+        image = volume[X[0]:X[1],Y[0]:Y[1],Z[0]:Z[1]]
 
         # Encode the chunk
         image_encoded = encode_volume(image)
@@ -458,14 +458,14 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
         # Write the chunk
         volume_dir = os.path.join(directory, str(S))
         write_image(image=image_encoded, volume_directory=volume_dir, 
-                    scale=S, x=Y, y=X, z=Z)
+                    scale=S, x=X, y=Y, z=Z)
         
         return image
 
     else:
 
         #initialize the output image
-        image = np.zeros((Y[1]-Y[0],X[1]-X[0],Z[1]-Z[0],1,1),dtype=dtype)
+        image = np.zeros((X[1]-X[0],Y[1]-Y[0],Z[1]-Z[0],1,1),dtype=dtype)
         
         # Set the subgrid dimensions
         subgrid_x = list(np.arange(2*X[0],2*X[1],chunk_size[0])) 
@@ -476,12 +476,7 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
         subgrid_z.append(2*Z[1])
 
         def load_and_scale(*args,**kwargs):
-            if isinstance(volume, bfio.bfio.BioReader):
-                jutil.attach()
-                sub_image = generate_recursive_chunked_representation(**kwargs)
-                jutil.detach()
-            else:
-                sub_image = generate_recursive_chunked_representation(**kwargs)
+            sub_image = generate_recursive_chunked_representation(**kwargs)
             image = args[0] 
             x_ind = args[1]
             y_ind = args[2]
@@ -518,6 +513,6 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
         image_encoded = encode_volume(image)
         volume_dir = os.path.join(directory, str(S))
         write_image(image=image_encoded, volume_directory=volume_dir,
-                    scale=S, x=Y, y=X, z=Z)
+                    scale=S, x=X, y=Y, z=Z)
 
         return image
