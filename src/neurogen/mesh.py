@@ -1,6 +1,5 @@
 import trimesh
 import numpy as np
-import pandas as pd
 import os, struct, json
 from neurogen import encoder
 
