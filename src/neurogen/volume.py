@@ -228,7 +228,7 @@ def generate_iterative_chunked_representation(volume,
     Parameters
     ----------
     volume : numpy array
-        A 5D (YXZCT) numpy array representing a volume
+        A 5D numpy array representing a volume.  Order of dimensions depends on info file.
     info : dict
         The "info JSON file specification" that is required by Neuroglancer as a dict.
     directory : str
@@ -254,10 +254,6 @@ def generate_iterative_chunked_representation(volume,
     # Generate volumes of highest resolution first
     for i in range(num_scales):
 
-        if isinstance(volume, bfio.bfio.BioReader):
-            if (volume.shape) <= (1024,1024,1024,1,1):
-                volume = volume[:,:,:,0,0]
-
         # Intialize information from this scale
         key = info['scales'][i]['key']
         size = info['scales'][i]['size']
@@ -275,10 +271,10 @@ def generate_iterative_chunked_representation(volume,
             blurred_image_shape = blurred_image.shape
 
         # Chunk Values
-        ysplits = list(np.arange(0, blurred_image_shape[0], chunk_size[0]))
-        ysplits.append(blurred_image_shape[0])
-        xsplits = list(np.arange(0, blurred_image_shape[1], chunk_size[1]))
-        xsplits.append(blurred_image_shape[1])
+        xsplits = list(np.arange(0, blurred_image_shape[0], chunk_size[0]))
+        xsplits.append(blurred_image_shape[0])
+        ysplits = list(np.arange(0, blurred_image_shape[1], chunk_size[1]))
+        ysplits.append(blurred_image_shape[1])
         zsplits = list(np.arange(0, blurred_image_shape[2], chunk_size[2]))
         zsplits.append(blurred_image_shape[2])
         totalsplits = (len(ysplits)-1)*(len(xsplits)-1)*(len(zsplits)-1)
@@ -286,12 +282,11 @@ def generate_iterative_chunked_representation(volume,
         def load_and_save_chunk(subvolume, blurred_image, volume_directory, scale, blurring_method, 
                                 start_x, end_x, start_y, end_y, start_z, end_z):
             
-            # print("scale {}: chunk {}-{}_{}-{}_{}-{}".format(scale,start_x, end_x, start_y, end_y, start_z, end_z))
             subvolume = subvolume.reshape(subvolume.shape[:3])
 
             encoded_subvolume = encode_volume(np.expand_dims(subvolume, 3))
             write_image(image=encoded_subvolume, volume_directory=volume_directory,
-                        scale=scale, x=[start_y, end_y], y=[start_x, end_x], z= [start_z, end_z])
+                        scale=scale, x=[start_x, end_x], y=[start_y, end_y], z= [start_z, end_z])
 
             # For the next level of detail, the chunk is "blurred" and saved to new volume
             blurred_subvolume = None
@@ -302,36 +297,29 @@ def generate_iterative_chunked_representation(volume,
             blurred_subvolume_shape = blurred_subvolume.shape
 
             # Specify bounds for new volume
-            new_start_y = int(start_y/2)
             new_start_x = int(start_x/2)
+            new_start_y = int(start_y/2)
             new_start_z = int(start_z/2)
-            new_end_y = new_start_y + blurred_subvolume_shape[0]
-            new_end_x = new_start_x + blurred_subvolume_shape[1]
+            new_end_x = new_start_x + blurred_subvolume_shape[0]
+            new_end_y = new_start_y + blurred_subvolume_shape[1]
             new_end_z = new_start_z + blurred_subvolume_shape[2] 
             
             # Update values to new volume
-            blurred_image[new_start_y:new_end_y,
-                          new_start_x:new_end_x,
+            blurred_image[new_start_x:new_end_x,
+                          new_start_y:new_end_y,
                           new_start_z:new_end_z,0,0] = blurred_subvolume
             
 
         for y in range(len(ysplits)-1):
             for x in range(len(xsplits)-1):
                 for z in range(len(zsplits)-1):
-                    start_y, end_y = (ysplits[y], ysplits[y+1])
                     start_x, end_x = (xsplits[x], xsplits[x+1])
+                    start_y, end_y = (ysplits[y], ysplits[y+1])
                     start_z, end_z = (zsplits[z], zsplits[z+1])
 
-                    if isinstance(volume, bfio.bfio.BioReader):
-                        jutil.attach()
-                        subvolume = volume[start_y:end_y,
-                                           start_x:end_x,
-                                           start_z:end_z]
-                        jutil.detach()
-                    else:
-                        subvolume = volume[start_y:end_y,
-                                           start_x:end_x,
-                                           start_z:end_z]
+                    subvolume = volume[start_x:end_x,
+                                       start_y:end_y,
+                                       start_z:end_z]
                     if totalsplits>=4:
                         with ThreadPoolExecutor(max_workers=8) as executor:
                             
@@ -363,7 +351,6 @@ def generate_iterative_chunked_representation(volume,
 
     return volume
 
-
 def generate_recursive_chunked_representation(volume, info, dtype, directory, blurring_method='mode', S=0, X=None,Y=None,Z=None):
 
     """ Recursive function for pyramid building
@@ -392,7 +379,7 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
     Parameters
     ----------
     volume : numpy array
-        A 5D (YXZCT) numpy array representing a volume
+        A 5D numpy array representing a volume.  Order of dimensions depends on info file.
     info : dict
         The "info JSON file specification" that is required by Neuroglancer as a dict.
     dtype : datatype
