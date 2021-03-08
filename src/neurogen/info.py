@@ -329,6 +329,9 @@ def info_mesh(directory,
         Number of bits for mesh vertex quantization. Can only be 10 or 16. 
     segment_subdirectory : str
         Subdirectory of info file for segment_properties
+    order : str
+        The order of the first three dimensions of numpy array. 
+        Default is XYZ.
     """
 
     if (segmentation_subdirectory) or (ids) or (labelled_ids):
