@@ -79,21 +79,33 @@ class mesh_info(class_info):
         info['type'] = 'segmentation'
         self.info = info
         
-    def get_multires_mesh_format(self, bit_depth):
+    def get_multires_mesh_format(self, bit_depth, order):
         """ More information can be found on:
         https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/meshes.md#multi-resolution-mesh-format """
         
         info = self.info
         resolution = info['scales'][0]['resolution']
 
-        self.multires_mesh_format = {
-            "@type" : "neuroglancer_multilod_draco",
-            "lod_scale_multiplier" : 1,
-            "transform" : [resolution[0], 0, 0,0,
-                           0, resolution[1], 0,0,
-                           0, 0, resolution[2],0],
-            "vertex_quantization_bits" : bit_depth 
-            }
+        if order == "XYZ":
+            self.multires_mesh_format = {
+                "@type" : "neuroglancer_multilod_draco",
+                "lod_scale_multiplier" : 1,
+                "transform" : [resolution[0], 0, 0, 0,
+                               0, resolution[1], 0, 0,
+                               0, 0, resolution[2], 0],
+                "vertex_quantization_bits" : bit_depth 
+                }
+        elif order == "YXZ":
+            self.multires_mesh_format = {
+                "@type" : "neuroglancer_multilod_draco",
+                "lod_scale_multiplier" : 1,
+                "transform" : [0, resolution[1], 0, 0,
+                               resolution[0], 0, 0, 0,
+                               0, 0, resolution[2], 0],
+                "vertex_quantization_bits" : bit_depth 
+                }
+        else:
+            raise ValueError("Need to Specify Order")
         
         return self.multires_mesh_format
 
@@ -287,7 +299,8 @@ def info_mesh(directory,
               labelled_ids = None,
               mesh_subdirectory='meshdir',
               bit_depth=16,
-              segmentation_subdirectory=None):
+              segmentation_subdirectory=None,
+              order="XYZ"):
 
     """ 
     This function generates the info files and initializes the directories 
@@ -330,10 +343,10 @@ def info_mesh(directory,
 
     if segmentation_subdirectory == None:
         info = mesh_json.info
-        multires_mesh_format = mesh_json.get_multires_mesh_format(bit_depth=bit_depth)
+        multires_mesh_format = mesh_json.get_multires_mesh_format(bit_depth=bit_depth,order=order)
     else:
         info, segment_properties = mesh_json.get_segment_properties(ids, labelled_ids, segmentation_subdirectory)
-        multires_mesh_format = mesh_json.get_multires_mesh_format(bit_depth=bit_depth)
+        multires_mesh_format = mesh_json.get_multires_mesh_format(bit_depth=bit_depth,order=order)
 
 
     # Write the info file to appropriate directory
