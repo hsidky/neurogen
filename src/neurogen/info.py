@@ -67,16 +67,16 @@ class segmentation_info(class_info):
         }
         return self.info, self.segmentation_info
 
-class mesh_info(class_info):
-    """ This class inherits class_info and add the type for segmentation.
-        It also creates labels for the segments if specified """ 
+class mesh_info(segmentation_info):
+    """ This class inherits segmentation_info and 
+        adds the directory where meshes are located. 
+        It also generates the multiresolution mesh format. """ 
 
     def __init__(self, dtype, chunk_size, size, resolution, mesh_subdirectory):
 
         class_info.__init__(self, dtype, chunk_size, size, resolution)
         info = self.info
         info['mesh'] = mesh_subdirectory
-        info['type'] = 'segmentation'
         self.info = info
         
     def get_multires_mesh_format(self, bit_depth, order):
@@ -108,39 +108,6 @@ class mesh_info(class_info):
             raise ValueError("Need to Specify Order")
         
         return self.multires_mesh_format
-
-    def get_segment_properties(self, ids, labelled_ids, segmentation_subdirectory):
-        info = self.info
-        info['segment_properties'] = segmentation_subdirectory
-        self.info = info
-
-        str_ids = [str(id) for id in ids]
-        if (labelled_ids == None):
-            labelled_ids = ["ID_"+str(id) for id in ids]
-
-        ids_info = {
-        "ids": str_ids,
-        "properties":[
-            {
-            "id":"label",
-            "type":"label",
-            "values": labelled_ids
-            },
-            {
-            "id":"description",
-            "type":"label",
-            "values": str_ids
-            }
-            ]
-        }
-
-        self.segmentation_info = {
-            "@type": "neuroglancer_segment_properties",
-            "inline": ids_info
-        }
-        
-        return self.info, self.segmentation_info
-
 
 def scaling(chunk_size,
             size,
@@ -351,7 +318,7 @@ def info_mesh(directory,
         info, segment_properties = mesh_json.get_segment_properties(ids, labelled_ids, segmentation_subdirectory)
         multires_mesh_format = mesh_json.get_multires_mesh_format(bit_depth=bit_depth,order=order)
 
-
+    print(segment_properties)
     # Write the info file to appropriate directory
     if not os.path.exists(directory):
         os.makedirs(directory, exist_ok=True)
