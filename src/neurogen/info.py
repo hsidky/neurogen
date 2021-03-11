@@ -30,7 +30,7 @@ class segmentation_info(class_info):
         It also creates labels for the segments if specified """ 
 
     def __init__(self, dtype, chunk_size, size, resolution):
-        class_info.__init__(self, dtype, chunk_size, size, resolution)
+        segmentation_info.__init__(self, dtype, chunk_size, size, resolution)
         info = self.info
         info['type'] =  'segmentation'
         self.info = info
