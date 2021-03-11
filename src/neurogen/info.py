@@ -318,7 +318,6 @@ def info_mesh(directory,
         info, segment_properties = mesh_json.get_segment_properties(ids, labelled_ids, segmentation_subdirectory)
         multires_mesh_format = mesh_json.get_multires_mesh_format(bit_depth=bit_depth,order=order)
 
-    print(segment_properties)
     # Write the info file to appropriate directory
     if not os.path.exists(directory):
         os.makedirs(directory, exist_ok=True)
