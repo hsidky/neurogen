@@ -246,9 +246,14 @@ def get_rest_of_the_pyramid(directory,
                             chunk_size, 
                             datatype,
                             blurring_method = 'mode'):
-    """ This function builds the rest of the pyramid when the highest resolution
-        of the pyramid has been created 
+    """ This function builds the next level of the pyramid based on the input.
+        Usually this function is used inside a while loop. 
         
+            Based on the input directory, this function creates a dictionary to group the 
+            that will be blurred together.  Once the images are organized, then it will 
+            concatenate all images into one, apply the blurring method, encode the blurred image,
+            and save in the next, higher level directory.
+
     Parameters
     ----------
     directory : str
