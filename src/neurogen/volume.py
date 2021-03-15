@@ -26,7 +26,6 @@ def encode_volume(chunk):
                         (0, 1, 2, 3), (3, 2, 1, 0))
     assert chunk.ndim == 4
     buf = chunk.tobytes()
-    print(len(buf))
     return buf
 
 def decode_volume(encoded_volume, dtype, shape=None):
@@ -50,111 +49,6 @@ def decode_volume(encoded_volume, dtype, shape=None):
     decoded_volume = np.moveaxis(decoded_volume, (0,1,2), (2,1,0))
 
     return decoded_volume
-
-def get_rest_of_the_pyramid(directory, input_shape, chunk_size, datatype):
-    """ This function builds the rest of the pyramid when the highest resolution
-        of the pyramid has been created 
-    Parameters
-    ----------
-    directory : str
-        The directory of the images that are being read.
-    input_shape : numpy array
-        The shape of all the chunks combined in 'directory'
-    chunk_size : numpy array
-        The size of chunks in directory
-    datatype : type
-        The datatype of the volumes in 'directory'
-    
-    Returns
-    -------
-    Saves images into the next level of the pyramid.
-    """
-
-
-    chunk0, chunk1, chunk2 = (chunk_size[0], chunk_size[1], chunk_size[2])
-    doublechunk0, doublechunk1, doublechunk2 = (chunk0*2, chunk1*2, chunk2*2)
-    in_shape0, in_shape1, in_shape2 = (input_shape[0], input_shape[1], input_shape[2])
-
-    # Initialize the keys of the dictionary that help organize the images in directory
-    group_images = {}
-    range_x = list(np.arange(0,input_shape[0],doublechunk0))
-    range_y = list(np.arange(0,input_shape[1],128))
-    range_z = list(np.arange(0,input_shape[2],128))
-    range_x = [(x, x+doublechunk0) if (x+doublechunk0) < in_shape0 else (x, in_shape0) for x in range_x]
-    range_y = [(y, y+doublechunk1) if (y+doublechunk1) < in_shape1 else (y, in_shape1) for y in range_y]
-    range_z = [(z, z+doublechunk2) if (z+doublechunk2) < in_shape2 else (z, in_shape2) for z in range_z]
-    combo_ranges = [range_x, range_y, range_z]
-    all_combos = list(itertools.product(*combo_ranges))
-    for all_c in all_combos:
-        group_images[all_c] = []
-
-    # Sort the images in directory into its repestive dictionary key
-    for image in sorted(os.listdir(directory)):
-        xyz = image.split("_")
-        split_x = xyz[0].split("-")
-        split_y = xyz[1].split("-")
-        split_z = xyz[2].split("-")
-
-        x0 = int(np.floor(int(split_x[0])/doublechunk0)*doublechunk0)
-        x1 = int(np.ceil(int(split_x[1])/doublechunk0)*doublechunk0)
-        y0 = int(np.floor(int(split_y[0])/doublechunk1)*doublechunk1)
-        y1 = int(np.ceil(int(split_y[1])/doublechunk1)*doublechunk1)
-        z0 = int(np.floor(int(split_z[0])/doublechunk2)*doublechunk2)
-        z1 = int(np.ceil(int(split_z[1])/doublechunk2)*doublechunk2)
-
-        # Edges need to be fixed of the np.arange function
-        if x1 == 0:
-            x1 = doublechunk0
-        if x1 > in_shape0:
-            x1 = in_shape0
-        
-        if y1 == 0:
-            y1 = doublechunk1
-        if y1 > in_shape1:
-            y1 = in_shape1
-        
-        if z1 == 0:
-            z1 = doublechunk2
-        if z1 > in_shape2:
-            z1 = in_shape2
-        
-        # Add the images to the appropriate key
-        key = ((x0, x1), (y0, y1), (z0, z1))
-        group_images[key].append(image)
-
-    # for every key in the dictionary, blur all the images together and create one output
-    base_directory = os.path.basename(directory)
-    parent_directory = os.path.dirname(directory)
-    new_directory = os.path.join(parent_directory, str(int(base_directory)-1))
-
-    # Go through the dictionary to blur the images list in the dictionary values together
-    for i in group_images.keys():
-
-        # Every key needs to be initialized 
-        new_image = np.zeros(((i[0][1]-i[0][0]), (i[1][1]-i[1][0]), (i[2][1]-i[2][0]))).astype(datatype)
-        index_offset = min(group_images[i]).split("_")
-        index_offset = [int(ind.split("-")[0]) for ind in index_offset]
-        for image in group_images[i]:
-            img_edge = image.split("_")
-            img_edge = [list(map(int, im.split("-"))) for im in img_edge]
-            imgshape = (img_edge[0][1]-img_edge[0][0], img_edge[1][1]-img_edge[1][0], img_edge[2][1]-img_edge[2][0])
-            with open(os.path.join(directory, image), "rb") as im:
-                print("IMAGE {} -- {}".format(image, datatype))
-                decoded_image = decode_volume(encoded_volume=im.read(), dtype=datatype, shape=imgshape)
-                new_image[img_edge[0][0]-index_offset[0]:img_edge[0][1]-index_offset[0], 
-                        img_edge[1][0]-index_offset[1]:img_edge[1][1]-index_offset[1], 
-                        img_edge[2][0]-index_offset[2]:img_edge[2][1]-index_offset[2]] = decoded_image
-
-        # Output the blurred image
-        blurred_image = _mode3(new_image).astype(datatype)
-
-        encoded_image = encode_volume(chunk=blurred_image)
-        x_write = list(np.ceil([i[0][0]/2, i[0][1]/2]).astype(np.int))
-        y_write = list(np.ceil([i[1][0]/2, i[1][1]/2]).astype(np.int))
-        z_write = list(np.ceil([i[2][0]/2, i[2][1]/2]).astype(np.int))
-
-        write_image(image=encoded_image, volume_directory=new_directory, 
-                    x=x_write, y=y_write, z=z_write)
 
 
 def _mode3(image):
@@ -345,6 +239,126 @@ def write_image(image, volume_directory, x, y, z):
                                            str(z[0]), str(z[1]))
     with open(os.path.join(volume_directory, f'{file_name}'), 'wb') as chunk_storage:
                     chunk_storage.write(image)
+
+
+def get_rest_of_the_pyramid(directory, 
+                            input_shape, 
+                            chunk_size, 
+                            datatype,
+                            blurring_method = 'mode'):
+    """ This function builds the rest of the pyramid when the highest resolution
+        of the pyramid has been created 
+        
+    Parameters
+    ----------
+    directory : str
+        The directory of the images that are being read.
+    input_shape : numpy array
+        The shape of all the chunks combined in 'directory'
+    chunk_size : numpy array
+        The size of chunks in directory
+    datatype : type
+        The datatype of the volumes in 'directory'
+    blurring_method : str
+        Specifies whether we are averaging the images or
+        taking the mode.
+    
+    Returns
+    -------
+    Saves images into the next level of the pyramid.
+    """
+
+
+    chunk0, chunk1, chunk2 = (chunk_size[0], chunk_size[1], chunk_size[2])
+    doublechunk0, doublechunk1, doublechunk2 = (chunk0*2, chunk1*2, chunk2*2)
+    in_shape0, in_shape1, in_shape2 = (input_shape[0], input_shape[1], input_shape[2])
+
+    # Initialize the keys of the dictionary that help organize the images in directory
+    group_images = {}
+    range_x = list(np.arange(0,input_shape[0],doublechunk0))
+    range_y = list(np.arange(0,input_shape[1],128))
+    range_z = list(np.arange(0,input_shape[2],128))
+    range_x = [(x, x+doublechunk0) if (x+doublechunk0) < in_shape0 else (x, in_shape0) for x in range_x]
+    range_y = [(y, y+doublechunk1) if (y+doublechunk1) < in_shape1 else (y, in_shape1) for y in range_y]
+    range_z = [(z, z+doublechunk2) if (z+doublechunk2) < in_shape2 else (z, in_shape2) for z in range_z]
+    combo_ranges = [range_x, range_y, range_z]
+    all_combos = list(itertools.product(*combo_ranges))
+    for all_c in all_combos:
+        group_images[all_c] = []
+
+    # Sort the images in directory into its repestive dictionary key
+    for image in sorted(os.listdir(directory)):
+        xyz = image.split("_")
+        split_x = xyz[0].split("-")
+        split_y = xyz[1].split("-")
+        split_z = xyz[2].split("-")
+
+        x0 = int(np.floor(int(split_x[0])/doublechunk0)*doublechunk0)
+        x1 = int(np.ceil(int(split_x[1])/doublechunk0)*doublechunk0)
+        y0 = int(np.floor(int(split_y[0])/doublechunk1)*doublechunk1)
+        y1 = int(np.ceil(int(split_y[1])/doublechunk1)*doublechunk1)
+        z0 = int(np.floor(int(split_z[0])/doublechunk2)*doublechunk2)
+        z1 = int(np.ceil(int(split_z[1])/doublechunk2)*doublechunk2)
+
+        # Edges need to be fixed of the np.arange function
+        if x1 == 0:
+            x1 = doublechunk0
+        if x1 > in_shape0:
+            x1 = in_shape0
+        
+        if y1 == 0:
+            y1 = doublechunk1
+        if y1 > in_shape1:
+            y1 = in_shape1
+        
+        if z1 == 0:
+            z1 = doublechunk2
+        if z1 > in_shape2:
+            z1 = in_shape2
+        
+        # Add the images to the appropriate key
+        key = ((x0, x1), (y0, y1), (z0, z1))
+        group_images[key].append(image)
+
+    # for every key in the dictionary, blur all the images together and create one output
+    base_directory = os.path.basename(directory)
+    parent_directory = os.path.dirname(directory)
+    new_directory = os.path.join(parent_directory, str(int(base_directory)-1))
+
+    # Go through the dictionary to blur the images list in the dictionary values together
+    for i in group_images.keys():
+        
+        # If dictionary key is empty, then move on to next key
+        if not group_images[i]:
+            continue
+
+        # Every key needs to be initialized 
+        new_image = np.zeros(((i[0][1]-i[0][0]), (i[1][1]-i[1][0]), (i[2][1]-i[2][0]))).astype(datatype)
+        index_offset = min(group_images[i]).split("_")
+        index_offset = [int(ind.split("-")[0]) for ind in index_offset]
+        for image in group_images[i]:
+            img_edge = image.split("_")
+            img_edge = [list(map(int, im.split("-"))) for im in img_edge]
+            imgshape = (img_edge[0][1]-img_edge[0][0], img_edge[1][1]-img_edge[1][0], img_edge[2][1]-img_edge[2][0])
+            with open(os.path.join(directory, image), "rb") as im:
+                decoded_image = decode_volume(encoded_volume=im.read(), dtype=datatype, shape=imgshape)
+                new_image[img_edge[0][0]-index_offset[0]:img_edge[0][1]-index_offset[0], 
+                        img_edge[1][0]-index_offset[1]:img_edge[1][1]-index_offset[1], 
+                        img_edge[2][0]-index_offset[2]:img_edge[2][1]-index_offset[2]] = decoded_image
+
+        # Output the blurred image
+        if blurring_method == 'mode':  
+            blurred_image = _mode3(new_image).astype(datatype)
+        else:
+            blurred_image = _avg3(new_image).astype(datatype)
+
+        encoded_image = encode_volume(chunk=blurred_image)
+        x_write = list(np.ceil([i[0][0]/2, i[0][1]/2]).astype(np.int))
+        y_write = list(np.ceil([i[1][0]/2, i[1][1]/2]).astype(np.int))
+        z_write = list(np.ceil([i[2][0]/2, i[2][1]/2]).astype(np.int))
+
+        write_image(image=encoded_image, volume_directory=new_directory, 
+                    x=x_write, y=y_write, z=z_write)
 
 
 def generate_iterative_chunked_representation(volume,
