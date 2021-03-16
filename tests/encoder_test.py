@@ -11,6 +11,8 @@ from neurogen import mesh as ngmesh
 from neurogen import info as nginfo
 from neurogen import volume as ngvol
 
+from copy import deepcopy
+
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 class TestEncodingDecoding(unittest.TestCase):
@@ -29,12 +31,17 @@ class TestEncodingDecoding(unittest.TestCase):
         )
     
     def test_info_file_specification(self):
-        sphere_png = './test_data/sphere_png/'
-        volume = np.zeros((102,102,101,1,1)).astype('uint8')
-        for png in os.listdir(sphere_png):
-            im = imageio.imread(os.path.join(sphere_png, png))
-            index = int(png[6:10])
-            volume[:,:,index,0,0] = im
+        size, radius = 100, 20
+        A = np.zeros((size,size,size))
+        volume = deepcopy(A) 
+        x0, y0, z0 = int(np.floor(A.shape[0]/2)), \
+                    int(np.floor(A.shape[1]/2)), int(np.floor(A.shape[2]/2))
+        for x in range(x0-radius, x0+radius+1):
+            for y in range(y0-radius, y0+radius+1):
+                for z in range(z0-radius, z0+radius+1):
+                    deb = radius - abs(x0-x) - abs(y0-y) - abs(z0-z) 
+                    if (deb)>=0: 
+                        volume[x,y,z] = 1
 
         with tempfile.TemporaryDirectory() as temp_dir:
             info_dict = nginfo.info_image(directory=str(temp_dir),
