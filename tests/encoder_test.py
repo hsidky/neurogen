@@ -4,14 +4,13 @@ import numpy as np
 import math
 import tempfile
 import struct
-import imageio
 
 from neurogen import encoder
 from neurogen import mesh as ngmesh
 from neurogen import info as nginfo
 from neurogen import volume as ngvol
 
-from copy import deepcopy
+
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -32,10 +31,10 @@ class TestEncodingDecoding(unittest.TestCase):
     
     def test_info_file_specification(self):
         size, radius = 100, 20
-        A = np.zeros((size,size,size))
-        volume = deepcopy(A) 
-        x0, y0, z0 = int(np.floor(A.shape[0]/2)), \
-                    int(np.floor(A.shape[1]/2)), int(np.floor(A.shape[2]/2))
+        volume = np.zeros((size,size,size))
+        volshape = volume.shape
+        x0, y0, z0 = int(np.floor(volshape[0]/2)), \
+                    int(np.floor(volshape[1]/2)), int(np.floor(volshape[2]/2))
         for x in range(x0-radius, x0+radius+1):
             for y in range(y0-radius, y0+radius+1):
                 for z in range(z0-radius, z0+radius+1):
