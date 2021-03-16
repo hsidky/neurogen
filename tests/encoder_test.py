@@ -31,7 +31,7 @@ class TestEncodingDecoding(unittest.TestCase):
     
     def test_info_file_specification(self):
         size, radius = 100, 20
-        volume = np.zeros((size,size,size))
+        volume = np.zeros((size,size,size)).astype('uint8')
         volshape = volume.shape
         x0, y0, z0 = int(np.floor(volshape[0]/2)), \
                     int(np.floor(volshape[1]/2)), int(np.floor(volshape[2]/2))
@@ -41,10 +41,12 @@ class TestEncodingDecoding(unittest.TestCase):
                     deb = radius - abs(x0-x) - abs(y0-y) - abs(z0-z) 
                     if (deb)>=0: 
                         volume[x,y,z] = 1
+        
+        vol_dtype = volume.dtype
 
         with tempfile.TemporaryDirectory() as temp_dir:
             info_dict = nginfo.info_image(directory=str(temp_dir),
-                                          dtype=volume.dtype,
+                                          dtype=vol_dtype,
                                           chunk_size=[64,64,64],
                                           size=volume.shape)
             scales = info_dict['scales']
@@ -53,9 +55,23 @@ class TestEncodingDecoding(unittest.TestCase):
 
             encodevolume = ngvol.generate_recursive_chunked_representation(volume=volume,
                                                                            info=info_dict,
-                                                                           dtype=volume.dtype,
+                                                                           dtype=vol_dtype,
                                                                            directory=temp_dir,
                                                                            blurring_method='average')
+            encoded_images = os.path.join(temp_dir, str(num_scales-1))
+
+            for encoded_base in os.listdir(encoded_images):
+                split = encoded_base.split("_")
+                split = [list(map(int, im.split("-"))) for im in split]
+                x1, x0 = split[0][1], split[0][0]
+                y1, y0 = split[1][1], split[1][0]
+                z1, z0 = split[2][1], split[2][0]
+
+                encoded_fullpath = os.path.join(encoded_images,encoded_base)
+                with open(encoded_fullpath, 'rb') as enc_image:
+                    decoded_image = ngvol.decode_volume(enc_image.read(), dtype=vol_dtype, shape=(x1-x0, y1-y0, z1-z0))
+                    self.assertTrue((volume[x0:x1, y0:y1, z0:z1] == decoded_image).all())
+
             for i in range(num_scales):
                 scale_key = scales[i]['key']
                 scale_dir = os.path.join(str(temp_dir), scale_key)
