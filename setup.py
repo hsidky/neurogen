@@ -67,17 +67,24 @@ class CMakeBuild(build_ext):
         print()  # Add an empty line for cleaner output
 
 
+with open('README.md', 'r') as fh:
+    long_description = fh.read()
+
+
 setup(
     name='neurogen',
-    version='0.1',
+    version='0.1.0',
     author='Hythem Sidky',
     author_email='hythem.sidky@axleinfo.com',
-    description='FILL ME IN',
-    long_description='',
+    description='Library for generating Neuroglancer compatible volumes and meshes',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    url='https://github.com/labshare/neurogen',
     packages=find_packages('src'),
     package_dir={'':'src'},
     ext_modules=[CMakeExtension('neurogen/backend')],
     cmdclass=dict(build_ext=CMakeBuild),
     test_suite='tests',
     zip_safe=False,
+    python_requires='>=3.6'
 )

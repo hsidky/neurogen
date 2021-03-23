@@ -123,3 +123,10 @@ for segment_id in ids:
     ngmesh.fulloctree_decomposition_mesh(vertices, faces, num_lods=1, segment_id=segment_id, directory=output_dir)
 ```
 ![plot](neuroglancer_bunny.png)
+
+
+**License**
+
+Neurogen is provided under an MIT license that can be found in the LICENSE
+file. By using, distributing, or contributing to this project, you agree to the
+terms and conditions of this license.
