@@ -10,6 +10,7 @@ try:
 except ImportError:
     pass
 
+
 def encode_volume(chunk):
     """ Encode a chunk from a Numpy array into bytes.
     Parameters 
@@ -27,6 +28,7 @@ def encode_volume(chunk):
     assert chunk.ndim == 4
     buf = chunk.tobytes()
     return buf
+
 
 def decode_volume(encoded_volume, dtype, shape=None):
     """ Decodes an enocoded image for Neuroglancer
@@ -366,142 +368,17 @@ def get_rest_of_the_pyramid(directory,
                     x=x_write, y=y_write, z=z_write)
 
 
-def generate_iterative_chunked_representation(volume,
-                                    info,
-                                    directory,
-                                    blurring_method='mode',
-                                    blurred_image=None):
-
-    """ Generates pyramids of the volume 
-    https://en.wikipedia.org/wiki/Pyramid_(image_processing) 
-
-    Parameters
-    ----------
-    volume : numpy array
-        A 5D numpy array representing a volume.  Order of dimensions depends on info file.
-    info : dict
-        The "info JSON file specification" that is required by Neuroglancer as a dict.
-    directory : str
-        Neuroglancer precomputed volume directory.
-    blurring_method : str
-        Either the average or the mode is taken for blurring to generate the pyramids.
-        Average - better for Images
-        Mode - better for Labelled Data
-
-    Returns
-    -------
-    Pyramids of the volume with a chunk representation as specified by the info JSON 
-    file specification in the output directory.
-    """
-
-    if blurred_image == None:
-        blurred_image = np.zeros(volume.shape, dtype=volume.dtype)
-
-    # Initialize information from info file
-    num_scales = len(info['scales'])
-
-    # Loop through all scales
-    # Generate volumes of highest resolution first
-    for i in range(num_scales):
-
-        # Intialize information from this scale
-        key = info['scales'][i]['key']
-        size = info['scales'][i]['size']
-        chunk_size = info['scales'][i]['chunk_sizes'][0]
-
-        # Number of chunks in every dimension
-        volumeshape = volume.shape
-
-        # Initialize directory for scale
-        volume_dir = os.path.join(directory, str(key))
-
-        if i != 0:
-            blurred_image_shape = [int(np.ceil(d/2)) for d in blurred_image.shape]
-        else:
-            blurred_image_shape = blurred_image.shape
-
-        # Chunk Values
-        xsplits = list(np.arange(0, blurred_image_shape[0], chunk_size[0]))
-        xsplits.append(blurred_image_shape[0])
-        ysplits = list(np.arange(0, blurred_image_shape[1], chunk_size[1]))
-        ysplits.append(blurred_image_shape[1])
-        zsplits = list(np.arange(0, blurred_image_shape[2], chunk_size[2]))
-        zsplits.append(blurred_image_shape[2])
-        totalsplits = (len(ysplits)-1)*(len(xsplits)-1)*(len(zsplits)-1)
-        
-        def load_and_save_chunk(subvolume, blurred_image, volume_directory, scale, blurring_method, 
-                                start_x, end_x, start_y, end_y, start_z, end_z):
-            
-            subvolume = subvolume.reshape(subvolume.shape[:3])
-
-            encoded_subvolume = encode_volume(np.expand_dims(subvolume, 3))
-            write_image(image=encoded_subvolume, volume_directory=volume_directory,
-                        x=[start_x, end_x], y=[start_y, end_y], z= [start_z, end_z])
-
-            # For the next level of detail, the chunk is "blurred" and saved to new volume
-            blurred_subvolume = None
-            if blurring_method == 'mode':
-                blurred_subvolume = _mode3(subvolume)
-            else:
-                blurred_subvolume = _avg3(subvolume)
-            blurred_subvolume_shape = blurred_subvolume.shape
-
-            # Specify bounds for new volume
-            new_start_x = int(start_x/2)
-            new_start_y = int(start_y/2)
-            new_start_z = int(start_z/2)
-            new_end_x = new_start_x + blurred_subvolume_shape[0]
-            new_end_y = new_start_y + blurred_subvolume_shape[1]
-            new_end_z = new_start_z + blurred_subvolume_shape[2] 
-            
-            # Update values to new volume
-            blurred_image[new_start_x:new_end_x,
-                          new_start_y:new_end_y,
-                          new_start_z:new_end_z,0,0] = blurred_subvolume
-            
-
-        for y in range(len(ysplits)-1):
-            for x in range(len(xsplits)-1):
-                for z in range(len(zsplits)-1):
-                    start_x, end_x = (xsplits[x], xsplits[x+1])
-                    start_y, end_y = (ysplits[y], ysplits[y+1])
-                    start_z, end_z = (zsplits[z], zsplits[z+1])
-
-                    subvolume = volume[start_x:end_x,
-                                       start_y:end_y,
-                                       start_z:end_z]
-                    if totalsplits>=4:
-                        with ThreadPoolExecutor(max_workers=8) as executor:
-                            
-                            executor.submit(load_and_save_chunk(subvolume = subvolume,
-                                                                blurred_image = blurred_image,
-                                                                volume_directory=volume_dir,
-                                                                scale=i,
-                                                                blurring_method=blurring_method,
-                                                                start_x=start_x, end_x=end_x,
-                                                                start_y=start_y, end_y=end_y,
-                                                                start_z=start_z, end_z=end_z))
-                    else:
-                        load_and_save_chunk(subvolume=subvolume,
-                                        blurred_image=blurred_image,
-                                        volume_directory=volume_dir,
-                                        scale=i,
-                                        blurring_method=blurring_method,
-                                        start_x=start_x, end_x=end_x,
-                                        start_y=start_y, end_y=end_y,
-                                        start_z=start_z, end_z=end_z)
-        executor.shutdown(wait=True)
-
-        volume[:blurred_image_shape[0],
-               :blurred_image_shape[1],
-               :blurred_image_shape[2],0,0] = blurred_image[:blurred_image_shape[0],
-                                                            :blurred_image_shape[1],
-                                                            :blurred_image_shape[2],0,0]
-        blurred_image = np.zeros(blurred_image_shape)
-
-    return volume
-
-def generate_recursive_chunked_representation(volume, info, dtype, directory, blurring_method='mode', S=0, X=None,Y=None,Z=None):
+def generate_recursive_chunked_representation(
+    volume, 
+    info, 
+    dtype, 
+    directory, 
+    blurring_method='mode', 
+    S=0, 
+    X=None,
+    Y=None,
+    Z=None,
+    max_workers=8):
 
     """ Recursive function for pyramid building
     This is a recursive function that builds an image pyramid by indicating
@@ -548,6 +425,8 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
         The range of Y indexes of the input volume that is being written.
     Z : list 
         The range of Z indexes of the input volume that is being written.
+    max_workers: int
+        Maximum number of workers to use to construct the pyramid.
 
     Returns
     -------
@@ -623,7 +502,7 @@ def generate_recursive_chunked_representation(volume, info, dtype, directory, bl
             else:
                 image[x_ind[0]:x_ind[1],y_ind[0]:y_ind[1],z_ind[0]:z_ind[1]] = _avg3(sub_image)
         
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Where each chunk gets mapped to.
             for x in range(0,len(subgrid_x)-1):
                 x_ind = np.ceil([(subgrid_x[x]-subgrid_x[0])/2,
