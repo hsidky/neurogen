@@ -39,8 +39,8 @@ from neurogen import info as nginfo
 from neurogen import volume as ngvolume
 
 # Input and output directories.
-input_dir = "cthead/"
-output_dir = "output/"
+input_dir = 'cthead/'
+output_dir = 'output/'
 
 #  Generate Input.
 volume = np.zeros((256,256,113,1,1)).astype('uint8')
@@ -94,8 +94,8 @@ from skimage import measure
 
 
 # Unzip tar  file into appropriate directory
-input_dir = "bunny_pngs/"
-output_dir = "output/"
+input_dir = 'bunny_pngs/'
+output_dir = 'output/'
 
 #  Generate Input
 volume = np.zeros((102,102,99,1,1)).astype('uint8')
@@ -112,14 +112,14 @@ info = nginfo.info_mesh(directory=output_dir,
                         size=volume.shape,
                         ids=ids,
                         labelled_ids = ['bunny'],
-                        segmentation_subdirectory = "segment_properties")
+                        segmentation_subdirectory = 'segment_properties')
 
 ngvolume.generate_recursive_chunked_representation(volume, 
                 info, dtype=volume.dtype, directory=output_dir)
 
 for segment_id in ids:
     # Generate mesh for each segment.
-    vertices, faces, _, _ = measure.marching_cubes((volume[:,:,:,0,0] == segment_id).astype("uint8"), level=0, step_size=1)
+    vertices, faces, _, _ = measure.marching_cubes((volume[:,:,:,0,0] == segment_id).astype('uint8'), level=0, step_size=1)
     ngmesh.fulloctree_decomposition_mesh(vertices, faces, num_lods=1, segment_id=segment_id, directory=output_dir)
 ```
 ![plot](neuroglancer_bunny.png)
