@@ -5,8 +5,6 @@ The two types of outputs it can create are:
 1) Volume generation
 2) Mutli-resolutional meshes
 
-
-
 **Installation**
 
 After cloning the repository with `--recurse-submodules` run the following:
@@ -80,7 +78,6 @@ git clone https://github.com/cpederkoff/stl-to-voxel
 python stl-to-voxel/stltovoxel.py High_Resolution_Stanford_Bunny/StanfordBunny_jmil_HIGH_RES_Smoothed.stl bunny_pngs/bunny.png
 ```
 
-
 ```python
 import os
 import imageio
@@ -91,7 +88,6 @@ from neurogen import mesh as ngmesh
 from neurogen import info as nginfo
 
 from skimage import measure
-
 
 # Unzip tar  file into appropriate directory
 input_dir = 'bunny_pngs/'
@@ -124,9 +120,7 @@ for segment_id in ids:
 ```
 ![plot](neuroglancer_bunny.png)
 
-
 **License**
-
 Neurogen is provided under an MIT license that can be found in the LICENSE
 file. By using, distributing, or contributing to this project, you agree to the
 terms and conditions of this license.
