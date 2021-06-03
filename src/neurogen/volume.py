@@ -4,7 +4,6 @@ from concurrent.futures import ThreadPoolExecutor
 import itertools
 
 try:
-    import javabridge as jutil
     import bfio
     from bfio import BioReader, BioWriter, JARS, LOG4J
 except ImportError:

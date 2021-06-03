@@ -10,8 +10,6 @@ from neurogen import mesh as ngmesh
 from neurogen import info as nginfo
 from neurogen import volume as ngvol
 
-
-
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 class TestEncodingDecoding(unittest.TestCase):
@@ -53,11 +51,11 @@ class TestEncodingDecoding(unittest.TestCase):
             num_scales = len(scales)
             self.assertTrue(info_dict['scales'][-1]['size'] == [1,1,1])
 
-            encodevolume = ngvol.generate_recursive_chunked_representation(volume=volume,
-                                                                           info=info_dict,
-                                                                           dtype=vol_dtype,
-                                                                           directory=temp_dir,
-                                                                           blurring_method='average')
+            ngvol.generate_recursive_chunked_representation(volume=volume,
+                                                            info=info_dict,
+                                                            dtype=vol_dtype,
+                                                            directory=temp_dir,
+                                                            blurring_method='average')
             encoded_images = os.path.join(temp_dir, str(num_scales-1))
 
             for encoded_base in os.listdir(encoded_images):
@@ -114,9 +112,7 @@ class TestEncodingDecoding(unittest.TestCase):
                     frags_inthisLOD = int(num_fragments_per_lod[i])
                     if i != (num_lods-1):
                         self.assertTrue(frags_inthisLOD%8==0)
-                    fragment_positions_x = list(struct.unpack_from("<" + str(frags_inthisLOD) + "I", manifest_file.read(frags_inthisLOD*4)))
-                    fragment_positions_y = list(struct.unpack_from("<" + str(frags_inthisLOD) + "I", manifest_file.read(frags_inthisLOD*4)))
-                    fragment_positions_z = list(struct.unpack_from("<" + str(frags_inthisLOD) + "I", manifest_file.read(frags_inthisLOD*4)))
+                    struct.unpack_from("<" + str(frags_inthisLOD) + "I", manifest_file.read(frags_inthisLOD*12))
                     fragment_offsets = list(struct.unpack_from("<" + str(frags_inthisLOD)+"I", manifest_file.read(frags_inthisLOD*4)))
                     offset_check = offset_check + sum(fragment_offsets)
 
@@ -125,7 +121,6 @@ class TestEncodingDecoding(unittest.TestCase):
             fragment = os.path.join(temp_dir, "meshdir", "1")
             fragment_file_size = os.path.getsize(fragment)
             self.assertTrue(offset_check==fragment_file_size)
-
 
 
 if __name__ == '__main__':
