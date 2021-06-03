@@ -1,8 +1,7 @@
 import trimesh
 import numpy as np
-import os, struct, json
+import os, struct
 from neurogen import encoder
-
 
 class Quantize():
     """

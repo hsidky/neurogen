@@ -5,6 +5,9 @@ The two types of outputs it can create are:
 1) Volume generation
 2) Mutli-resolutional meshes
 
+Note: 
+This library does not handle sharding or interleaved colors.
+
 **Installation**
 
 After cloning the repository with `--recurse-submodules` run the following:
@@ -68,11 +71,11 @@ ngvolume.generate_recursive_chunked_representation(
 
 **Mesh Generation Example (with Volume Generation)**
 
-Download a high resolution version of the Standford Bunny from https://www.thingiverse.com/thing:11622 
+Download a high resolution version of the Stanford Bunny from https://www.thingiverse.com/thing:11622 
 
 ```Ubuntu
 wget https://cdn.thingiverse.com/zipfiles/f0/90/b2/26/36/High_Resolution_Stanford_Bunny.zip
-unzip High_Resolution_Standford_Bunny.zip 
+unzip High_Resolution_Stanford_Bunny.zip 
 mkdir bunny_pngs
 git clone https://github.com/cpederkoff/stl-to-voxel
 python stl-to-voxel/stltovoxel.py High_Resolution_Stanford_Bunny/StanfordBunny_jmil_HIGH_RES_Smoothed.stl bunny_pngs/bunny.png
