@@ -2,13 +2,10 @@ import os
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 import itertools
+import traceback
 
-try:
-    import javabridge as jutil
-    import bfio
-    from bfio import BioReader, BioWriter, JARS, LOG4J
-except ImportError:
-    pass
+import bfio
+from bfio import BioReader, BioWriter
 
 
 def encode_volume(chunk):
@@ -283,8 +280,8 @@ def get_rest_of_the_pyramid(directory,
     # Initialize the keys of the dictionary that help organize the images in directory
     group_images = {}
     range_x = list(np.arange(0,input_shape[0],doublechunk0))
-    range_y = list(np.arange(0,input_shape[1],128))
-    range_z = list(np.arange(0,input_shape[2],128))
+    range_y = list(np.arange(0,input_shape[1],doublechunk1))
+    range_z = list(np.arange(0,input_shape[2],doublechunk2))
     range_x = [(x, x+doublechunk0) if (x+doublechunk0) < in_shape0 else (x, in_shape0) for x in range_x]
     range_y = [(y, y+doublechunk1) if (y+doublechunk1) < in_shape1 else (y, in_shape1) for y in range_y]
     range_z = [(z, z+doublechunk2) if (z+doublechunk2) < in_shape2 else (z, in_shape2) for z in range_z]
@@ -310,18 +307,18 @@ def get_rest_of_the_pyramid(directory,
         # Edges need to be fixed of the np.arange function
         if x1 == 0:
             x1 = doublechunk0
-        if x1 > in_shape0:
-            x1 = in_shape0
+        else:
+            x1 = min(x1, in_shape0)
         
         if y1 == 0:
             y1 = doublechunk1
-        if y1 > in_shape1:
-            y1 = in_shape1
+        else:
+            y1 = min(y1, in_shape1)
         
         if z1 == 0:
             z1 = doublechunk2
-        if z1 > in_shape2:
-            z1 = in_shape2
+        else:
+            z1 = min(z1, in_shape2)
         
         # Add the images to the appropriate key
         key = ((x0, x1), (y0, y1), (z0, z1))
@@ -465,8 +462,37 @@ def generate_recursive_chunked_representation(
     # If requesting from the lowest scale, then just read the image
     if str(S)==all_scales[0]['key']:
 
-        # Taking a chunk of the input
-        image = volume[X[0]:X[1],Y[0]:Y[1],Z[0]:Z[1]]
+        # if the volume is a bfio object, then cache
+        if type(volume) is bfio.bfio.BioReader:
+            if hasattr(volume,'cache') and \
+                X[0] >= volume.cache_X[0] and X[1] <= volume.cache_X[1] and \
+                Y[0] >= volume.cache_Y[0] and Y[1] <= volume.cache_Y[1] and \
+                Z[0] >= volume.cache_Z[0] and Z[1] <= volume.cache_Z[1]:
+
+                pass
+
+            else:
+                X_min = 1024 * (X[0]//volume._TILE_SIZE)
+                Y_min = 1024 * (Y[0]//volume._TILE_SIZE)
+                Z_min = 1024 * (Z[0]//volume._TILE_SIZE)
+                X_max = min([X_min+1024,volume.X])
+                Y_max = min([Y_min+1024,volume.Y])
+                Z_max = min([Z_min+1024,volume.Z])
+                
+                volume.cache = volume[Y_min:Y_max,X_min:X_max,Z_min:Z_max,0,0].squeeze()
+                
+                volume.cache_X = [X_min,X_max]
+                volume.cache_Y = [Y_min,Y_max]
+                volume.cache_Z = [Z_min,Z_max]
+            
+            # Taking a chunk of the input
+            image = volume.cache[Y[0]-volume.cache_Y[0]:Y[1]-volume.cache_Y[0],
+                                 X[0]-volume.cache_X[0]:X[1]-volume.cache_X[0],                                  
+                                 Z[0]-volume.cache_Z[0]:Z[1]-volume.cache_Z[0]]
+        
+        else:
+            # Taking a chunk of the input
+            image = volume[X[0]:X[1],Y[0]:Y[1],Z[0]:Z[1]]
 
         # Encode the chunk
         image_encoded = encode_volume(image)
