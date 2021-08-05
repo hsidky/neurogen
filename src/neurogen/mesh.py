@@ -214,7 +214,7 @@ def fulloctree_decomposition_mesh(mesh,
 
     # Write manifest file/fragment file as specified:
     # https://github.com/google/neuroglancer/blob/master/src/neuroglancer/datasource/precomputed/meshes.md
-    chunk_shape = (max_mesh_vertex - min_mesh_vertex)/(num_lods)
+    chunk_shape = (max_mesh_vertex - min_mesh_vertex)/(scales[-1])
     grid_origin = min_mesh_vertex
     vertex_offsets = np.array([[0., 0., 0.] for _ in range(num_lods)])
     num_fragments_per_lod = np.flip(np.power(8, lods))
