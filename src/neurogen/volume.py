@@ -1,7 +1,11 @@
 import os
 import numpy as np
+
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import cpu_count
 import itertools
+from itertools import repeat
+
 import traceback
 
 import bfio
@@ -329,26 +333,25 @@ def get_rest_of_the_pyramid(directory,
     parent_directory = os.path.dirname(directory)
     new_directory = os.path.join(parent_directory, str(int(base_directory)-1))
 
-    # Go through the dictionary to blur the images list in the dictionary values together
-    for i in group_images.keys():
-        
-        # If dictionary key is empty, then move on to next key
-        if not group_images[i]:
-            continue
+    def blur_images_indict(i, dictionary_grouped_imgs, datatype):
+        """ This function blurs four images together to give the next level of the pyramid. 
+            This function was specifically built so that images that needed to be averaged 
+                together could be done with multiprocessing. """
 
         # Every key needs to be initialized 
         new_image = np.zeros(((i[0][1]-i[0][0]), (i[1][1]-i[1][0]), (i[2][1]-i[2][0]))).astype(datatype)
-        index_offset = min(group_images[i]).split("_")
+        index_offset = min(dictionary_grouped_imgs[i]).split("_")
         index_offset = [int(ind.split("-")[0]) for ind in index_offset]
-        for image in group_images[i]:
+        # iterate through the images that need to be grouped together
+        for image in dictionary_grouped_imgs[i]:
             img_edge = image.split("_")
             img_edge = [list(map(int, im.split("-"))) for im in img_edge]
             imgshape = (img_edge[0][1]-img_edge[0][0], img_edge[1][1]-img_edge[1][0], img_edge[2][1]-img_edge[2][0])
             with open(os.path.join(directory, image), "rb") as im:
                 decoded_image = decode_volume(encoded_volume=im.read(), dtype=datatype, shape=imgshape)
                 new_image[img_edge[0][0]-index_offset[0]:img_edge[0][1]-index_offset[0], 
-                        img_edge[1][0]-index_offset[1]:img_edge[1][1]-index_offset[1], 
-                        img_edge[2][0]-index_offset[2]:img_edge[2][1]-index_offset[2]] = decoded_image
+                          img_edge[1][0]-index_offset[1]:img_edge[1][1]-index_offset[1], 
+                          img_edge[2][0]-index_offset[2]:img_edge[2][1]-index_offset[2]] = decoded_image
 
         # Output the blurred image
         if blurring_method == 'mode':  
@@ -364,6 +367,14 @@ def get_rest_of_the_pyramid(directory,
         write_image(image=encoded_image, volume_directory=new_directory, 
                     x=x_write, y=y_write, z=z_write)
 
+    # Go through the dictionary to blur the images list in the dictionary values together
+        # use multiprocessing to use multiple cores
+    with ThreadPoolExecutor(max_workers = os.cpu_count()-1) as executor:
+        executor.map(blur_images_indict, 
+                    (i for i in group_images.keys()), 
+                    repeat(group_images), 
+                    repeat(datatype))
+    
 
 def generate_recursive_chunked_representation(
     volume, 
