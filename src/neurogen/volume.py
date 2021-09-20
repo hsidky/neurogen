@@ -1,14 +1,15 @@
 import os
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor
-import itertools
 
-try:
-    import javabridge as jutil
-    import bfio
-    from bfio import BioReader, BioWriter, JARS, LOG4J
-except ImportError:
-    pass
+from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import cpu_count
+import itertools
+from itertools import repeat
+
+import traceback
+
+import bfio
+from bfio import BioReader, BioWriter
 
 
 def encode_volume(chunk):
@@ -283,8 +284,8 @@ def get_rest_of_the_pyramid(directory,
     # Initialize the keys of the dictionary that help organize the images in directory
     group_images = {}
     range_x = list(np.arange(0,input_shape[0],doublechunk0))
-    range_y = list(np.arange(0,input_shape[1],128))
-    range_z = list(np.arange(0,input_shape[2],128))
+    range_y = list(np.arange(0,input_shape[1],doublechunk1))
+    range_z = list(np.arange(0,input_shape[2],doublechunk2))
     range_x = [(x, x+doublechunk0) if (x+doublechunk0) < in_shape0 else (x, in_shape0) for x in range_x]
     range_y = [(y, y+doublechunk1) if (y+doublechunk1) < in_shape1 else (y, in_shape1) for y in range_y]
     range_z = [(z, z+doublechunk2) if (z+doublechunk2) < in_shape2 else (z, in_shape2) for z in range_z]
@@ -310,18 +311,18 @@ def get_rest_of_the_pyramid(directory,
         # Edges need to be fixed of the np.arange function
         if x1 == 0:
             x1 = doublechunk0
-        if x1 > in_shape0:
-            x1 = in_shape0
+        else:
+            x1 = min(x1, in_shape0)
         
         if y1 == 0:
             y1 = doublechunk1
-        if y1 > in_shape1:
-            y1 = in_shape1
+        else:
+            y1 = min(y1, in_shape1)
         
         if z1 == 0:
             z1 = doublechunk2
-        if z1 > in_shape2:
-            z1 = in_shape2
+        else:
+            z1 = min(z1, in_shape2)
         
         # Add the images to the appropriate key
         key = ((x0, x1), (y0, y1), (z0, z1))
@@ -332,26 +333,25 @@ def get_rest_of_the_pyramid(directory,
     parent_directory = os.path.dirname(directory)
     new_directory = os.path.join(parent_directory, str(int(base_directory)-1))
 
-    # Go through the dictionary to blur the images list in the dictionary values together
-    for i in group_images.keys():
-        
-        # If dictionary key is empty, then move on to next key
-        if not group_images[i]:
-            continue
+    def blur_images_indict(i, dictionary_grouped_imgs, datatype):
+        """ This function blurs four images together to give the next level of the pyramid. 
+            This function was specifically built so that images that needed to be averaged 
+                together could be done with multiprocessing. """
 
         # Every key needs to be initialized 
         new_image = np.zeros(((i[0][1]-i[0][0]), (i[1][1]-i[1][0]), (i[2][1]-i[2][0]))).astype(datatype)
-        index_offset = min(group_images[i]).split("_")
+        index_offset = min(dictionary_grouped_imgs[i]).split("_")
         index_offset = [int(ind.split("-")[0]) for ind in index_offset]
-        for image in group_images[i]:
+        # iterate through the images that need to be grouped together
+        for image in dictionary_grouped_imgs[i]:
             img_edge = image.split("_")
             img_edge = [list(map(int, im.split("-"))) for im in img_edge]
             imgshape = (img_edge[0][1]-img_edge[0][0], img_edge[1][1]-img_edge[1][0], img_edge[2][1]-img_edge[2][0])
             with open(os.path.join(directory, image), "rb") as im:
                 decoded_image = decode_volume(encoded_volume=im.read(), dtype=datatype, shape=imgshape)
                 new_image[img_edge[0][0]-index_offset[0]:img_edge[0][1]-index_offset[0], 
-                        img_edge[1][0]-index_offset[1]:img_edge[1][1]-index_offset[1], 
-                        img_edge[2][0]-index_offset[2]:img_edge[2][1]-index_offset[2]] = decoded_image
+                          img_edge[1][0]-index_offset[1]:img_edge[1][1]-index_offset[1], 
+                          img_edge[2][0]-index_offset[2]:img_edge[2][1]-index_offset[2]] = decoded_image
 
         # Output the blurred image
         if blurring_method == 'mode':  
@@ -367,6 +367,14 @@ def get_rest_of_the_pyramid(directory,
         write_image(image=encoded_image, volume_directory=new_directory, 
                     x=x_write, y=y_write, z=z_write)
 
+    # Go through the dictionary to blur the images list in the dictionary values together
+        # use multiprocessing to use multiple cores
+    with ThreadPoolExecutor(max_workers = os.cpu_count()-1) as executor:
+        executor.map(blur_images_indict, 
+                    (i for i in group_images.keys()), 
+                    repeat(group_images), 
+                    repeat(datatype))
+    
 
 def generate_recursive_chunked_representation(
     volume, 
@@ -465,8 +473,37 @@ def generate_recursive_chunked_representation(
     # If requesting from the lowest scale, then just read the image
     if str(S)==all_scales[0]['key']:
 
-        # Taking a chunk of the input
-        image = volume[X[0]:X[1],Y[0]:Y[1],Z[0]:Z[1]]
+        # if the volume is a bfio object, then cache
+        if type(volume) is bfio.bfio.BioReader:
+            if hasattr(volume,'cache') and \
+                X[0] >= volume.cache_X[0] and X[1] <= volume.cache_X[1] and \
+                Y[0] >= volume.cache_Y[0] and Y[1] <= volume.cache_Y[1] and \
+                Z[0] >= volume.cache_Z[0] and Z[1] <= volume.cache_Z[1]:
+
+                pass
+
+            else:
+                X_min = 1024 * (X[0]//volume._TILE_SIZE)
+                Y_min = 1024 * (Y[0]//volume._TILE_SIZE)
+                Z_min = 1024 * (Z[0]//volume._TILE_SIZE)
+                X_max = min([X_min+1024,volume.X])
+                Y_max = min([Y_min+1024,volume.Y])
+                Z_max = min([Z_min+1024,volume.Z])
+                
+                volume.cache = volume[Y_min:Y_max,X_min:X_max,Z_min:Z_max,0,0].squeeze()
+                
+                volume.cache_X = [X_min,X_max]
+                volume.cache_Y = [Y_min,Y_max]
+                volume.cache_Z = [Z_min,Z_max]
+            
+            # Taking a chunk of the input
+            image = volume.cache[Y[0]-volume.cache_Y[0]:Y[1]-volume.cache_Y[0],
+                                 X[0]-volume.cache_X[0]:X[1]-volume.cache_X[0],                                  
+                                 Z[0]-volume.cache_Z[0]:Z[1]-volume.cache_Z[0]]
+        
+        else:
+            # Taking a chunk of the input
+            image = volume[X[0]:X[1],Y[0]:Y[1],Z[0]:Z[1]]
 
         # Encode the chunk
         image_encoded = encode_volume(image)
